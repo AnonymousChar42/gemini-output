@@ -1,0 +1,5 @@
+{
+  "name": "High-Performance Virtualized Gantt Chart",
+  "description": "A robust, reusable Gantt Chart component built with React, TypeScript, and Tailwind CSS, featuring full virtualization for both horizontal and vertical axes to handle massive datasets (e.g., flight schedules). Includes drag-and-drop, resizing, and customizable item templates.",
+  "requestFramePermissions": []
+}
