@@ -56,10 +56,67 @@ jobs:
         # 注意：以上脚本假设每个子项目的构建命令为 “pnpm run build”
         # 请确保你每个子项目的 package.json 中都有此脚本。
 
-      # 步骤4：将所有项目的构建产物汇总到一个目录
-      - name: Collect Build Outputs
+      # 步骤4：收集所有项目的元数据并生成 index.html
+      - name: Generate Index Page
         run: |
           mkdir -p _site # 创建一个统一的发布目录
+
+          # 创建项目数据数组
+          PROJECTS_JSON='[]'
+          
+          # 遍历所有包含 package.json 的子目录
+          for dir in */ ; do
+            if [ -f "$dir/package.json" ] && [ -f "$dir/metadata.json" ]; then
+              echo "Processing metadata for: $dir"
+              project_name=$(basename "$dir")
+              
+              # 读取 metadata.json
+              metadata=$(cat "$dir/metadata.json")
+              
+              # 提取 name 和 description
+              name=$(echo "$metadata" | grep -o '"name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+              description=$(echo "$metadata" | grep -o '"description": *"[^"]*"' | head -1 | cut -d'"' -f4)
+              
+              # 如果没有找到 name，使用目录名
+              if [ -z "$name" ]; then
+                name="$project_name"
+              fi
+              
+              # 如果没有找到 description，使用默认描述
+              if [ -z "$description" ]; then
+                description="An interactive web application built with modern technologies."
+              fi
+              
+              # 创建项目对象 JSON
+              project_json=$(jq -n \
+                --arg name "$name" \
+                --arg desc "$description" \
+                --arg path "$project_name" \
+                '{name: $name, description: $desc, path: $path}')
+              
+              # 添加到项目数组
+              PROJECTS_JSON=$(echo "$PROJECTS_JSON" | jq --argjson project "$project_json" '. + [$project]')
+            fi
+          done
+          
+          echo "Collected projects:"
+          echo "$PROJECTS_JSON" | jq '.'
+          
+          # 复制模板文件
+          cp index.html _site/index.html
+          
+          # 替换模板中的 PROJECTS_DATA
+          # 将 JSON 数组转换为 JavaScript 数组字符串
+          js_array=$(echo "$PROJECTS_JSON" | jq -c '.')
+          
+          # 使用 sed 替换占位符
+          sed -i "s/const PROJECTS_DATA = \[\];/const PROJECTS_DATA = $js_array;/g" _site/index.html
+          
+          echo "✅ Index page generated successfully!"
+
+      # 步骤5：将所有项目的构建产物汇总到一个目录
+      - name: Collect Build Outputs
+        run: |
           for dir in */ ; do
             if [ -f "$dir/package.json" ]; then
               project_name=$(basename "$dir")
@@ -71,13 +128,13 @@ jobs:
             fi
           done
 
-      # 步骤5：上传构建产物
+      # 步骤6：上传构建产物
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '_site' # 上传我们汇总的目录
 
-  # 步骤6：部署到 GitHub Pages
+  # 步骤7：部署到 GitHub Pages
   deploy:
     environment:
       name: github-pages

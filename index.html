@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎨 Gemini Examples Gallery</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            color: white;
+            animation: fadeIn 1s ease-out;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .project-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            animation: slideUp 0.6s ease-out;
+            animation-fill-mode: both;
+            opacity: 0;
+        }
+
+        .project-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            padding: 25px 25px 15px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .card-header h3 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-header .emoji {
+            font-size: 1.8rem;
+        }
+
+        .card-body {
+            padding: 25px;
+        }
+
+        .card-body p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+
+        .launch-button {
+            display: inline-block;
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            text-align: center;
+            width: 100%;
+        }
+
+        .launch-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            padding: 30px;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .project-card:nth-child(1) { animation-delay: 0.1s; }
+        .project-card:nth-child(2) { animation-delay: 0.2s; }
+        .project-card:nth-child(3) { animation-delay: 0.3s; }
+        .project-card:nth-child(4) { animation-delay: 0.4s; }
+        .project-card:nth-child(5) { animation-delay: 0.5s; }
+        .project-card:nth-child(6) { animation-delay: 0.6s; }
+
+        @media (max-width: 768px) {
+            .gallery {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+            }
+            
+            .container {
+                padding: 20px 10px;
+            }
+        }
+
+        .search-bar {
+            max-width: 500px;
+            margin: 0 auto 40px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .no-projects {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            color: white;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Gemini Examples Gallery</h1>
+            <p>A curated collection of interactive demos and projects showcasing various web technologies and creative implementations.</p>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" class="search-input" placeholder="🔍 Search projects..." id="searchInput">
+        </div>
+
+        <div class="gallery" id="projectsGallery">
+            <!-- Projects will be dynamically inserted here -->
+            <div class="no-projects" id="noProjectsMessage">
+                No projects found. Projects will appear here when deployed.
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>© 2024 Gemini Examples Gallery • All projects are built with modern web technologies</p>
+        <p>🚀 Deployed automatically via GitHub Actions</p>
+    </div>
+
+    <script>
+        // Projects data will be injected here by GitHub Actions
+        const PROJECTS_DATA = [];
+
+        function renderProjects(projects) {
+            const gallery = document.getElementById('projectsGallery');
+            const noProjectsMsg = document.getElementById('noProjectsMessage');
+            
+            if (!projects || projects.length === 0) {
+                noProjectsMsg.style.display = 'block';
+                return;
+            }
+            
+            noProjectsMsg.style.display = 'none';
+            
+            // Emoji mapping based on project names
+            const emojiMap = {
+                'game': '🎮',
+                'magic': '✨',
+                'tower': '🏰',
+                'editor': '✏️',
+                'draw': '🎨',
+                'music': '🎵',
+                'chart': '📊',
+                'demo': '🚀',
+                'test': '🧪',
+                'legacy': '🕹️',
+                'default': '📁'
+            };
+            
+            gallery.innerHTML = projects.map(project => {
+                // Determine emoji based on project name
+                let emoji = '📁';
+                for (const [key, value] of Object.entries(emojiMap)) {
+                    if (project.name.toLowerCase().includes(key)) {
+                        emoji = value;
+                        break;
+                    }
+                }
+                
+                return `
+                    <div class="project-card" data-search="${project.name.toLowerCase()} ${project.description.toLowerCase()}">
+                        <div class="card-header">
+                            <h3>
+                                <span class="emoji">${emoji}</span>
+                                ${project.name}
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <p>${project.description}</p>
+                            <a href="/gemini-output/${project.path}/" class="launch-button">
+                                🚀 Launch Project
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Search functionality
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            if (!searchInput) return;
+            
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                const cards = document.querySelectorAll('.project-card');
+                
+                let visibleCount = 0;
+                
+                cards.forEach(card => {
+                    const searchText = card.getAttribute('data-search');
+                    if (searchText.includes(searchTerm)) {
+                        card.style.display = 'block';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+                
+                const noProjectsMsg = document.getElementById('noProjectsMessage');
+                if (noProjectsMsg) {
+                    noProjectsMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+                    noProjectsMsg.textContent = searchTerm ? 
+                        'No projects match your search. Try a different term.' : 
+                        'No projects found. Projects will appear here when deployed.';
+                }
+            });
+        }
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Render projects with injected data
+            renderProjects(PROJECTS_DATA);
+            
+            // Setup search functionality
+            setupSearch();
+            
+            // Add subtle animation on load
+            setTimeout(() => {
+                document.body.style.opacity = 1;
+            }, 100);
+        });
+        
+        // Initial body opacity
+        document.body.style.opacity = 0;
+        document.body.style.transition = 'opacity 0.5s ease';
+    </script>
+</body>
+</html>
