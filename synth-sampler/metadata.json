@@ -1,0 +1,5 @@
+{
+  "name": "Synth Sampler",
+  "description": "A web-based sampler synthesizer. Upload your own audio and play it back chromatically on a virtual keyboard with real-time pitch shifting.",
+  "requestFramePermissions": []
+}
