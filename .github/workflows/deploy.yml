@@ -43,7 +43,13 @@ jobs:
               echo "Building project: $dir"
               cd "$dir"
               pnpm install
-              pnpm run build
+              
+              # 获取项目目录名
+              project_name=$(basename "$PWD")
+              
+              # 为Vite项目设置base路径
+              pnpm run build -- --base="/gemini-output/$project_name/"
+              
               cd ..
             fi
           done
