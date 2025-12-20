@@ -337,22 +337,22 @@ const GameContainer: React.FC<GameContainerProps> = ({
         <div className="absolute top-32 left-40 text-xs text-yellow-100 opacity-20">✨</div>
         <div className="absolute top-10 left-80 text-xs text-yellow-100 opacity-20">✨</div>
 
-        {/* The Oriental Pearl Tower (Base) */}
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 select-none pointer-events-none" style={{ left: '20px' }}>
-             <div className="text-[150px] leading-none drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]">🏙️</div>
-             <div className="absolute -bottom-4 left-4 w-32 h-4 bg-black/50 blur-md rounded-full"></div>
-             {/* Health Bar */}
-             <div className="absolute -top-10 left-0 w-full flex justify-center">
-                <div className="bg-gray-800 w-32 h-4 rounded-full border border-gray-600 overflow-hidden relative">
-                    <div 
-                        className="h-full bg-red-500 transition-all duration-300"
-                        style={{ width: `${(hp / INITIAL_HP) * 100}%` }}
-                    />
-                </div>
-             </div>
-             <div className="absolute -top-16 left-0 w-full text-center text-white font-bold drop-shadow-md">
-                {hp} ❤️
-             </div>
+        {/* Huge Tower Emoji - Visual Only */}
+        <div className="absolute -left-[50px] top-1/2 -translate-y-1/2 z-0 select-none pointer-events-none opacity-100 flex items-center justify-center">
+             <div className="text-[600px] leading-none drop-shadow-[0_0_25px_rgba(236,72,153,0.3)] filter brightness-110">🗼</div>
+        </div>
+
+        {/* Health Bar - Repositioned to top-left fixed relative to container */}
+        <div className="absolute top-20 left-4 z-10 w-48">
+            <div className="bg-gray-800 w-full h-4 rounded-full border border-gray-600 overflow-hidden relative shadow-lg">
+                <div 
+                    className="h-full bg-red-500 transition-all duration-300"
+                    style={{ width: `${(hp / INITIAL_HP) * 100}%` }}
+                />
+            </div>
+            <div className="text-center text-white font-bold drop-shadow-md mt-1">
+                Base HP: {Math.floor(hp)}
+            </div>
         </div>
 
         {/* Weapon Slots */}
@@ -368,7 +368,7 @@ const GameContainer: React.FC<GameContainerProps> = ({
                     className={`absolute w-12 h-12 flex items-center justify-center rounded-lg cursor-pointer transition-transform z-20
                         ${isSelected ? 'ring-2 ring-yellow-400 scale-110 bg-white/10' : 'bg-black/20 hover:bg-white/5'}
                     `}
-                    style={{ left: pos.x, top: pos.y }}
+                    style={{ left: pos.x, top: pos.y, transform: 'translate(-50%, -50%)' }}
                 >
                     {weapon ? (
                         <div className="text-3xl relative">
@@ -451,7 +451,7 @@ const GameContainer: React.FC<GameContainerProps> = ({
                         return (
                             <path 
                                 key={`beam-${i}`}
-                                d={`M ${start.x+20} ${start.y+20} Q ${midX} ${midY} ${target.x} ${target.y}`}
+                                d={`M ${start.x} ${start.y} Q ${midX} ${midY} ${target.x} ${target.y}`}
                                 stroke="#fde047"
                                 strokeWidth="3"
                                 fill="none"

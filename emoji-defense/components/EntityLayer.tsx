@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Enemy, Projectile, Tower, Particle, TowerTypeDefinition } from '../types';
 import { ENEMY_TYPES, TOWER_TYPES } from '../constants';
 
@@ -10,9 +11,48 @@ interface EntityLayerProps {
   tileSize: number;
   selectedTowerId: string | null;
   hoveredTowerId: string | null;
+  mapRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export const EntityLayer: React.FC<EntityLayerProps> = ({ enemies, towers, projectiles, particles, tileSize, selectedTowerId, hoveredTowerId }) => {
+export const EntityLayer: React.FC<EntityLayerProps> = ({ enemies, towers, projectiles, particles, tileSize, selectedTowerId, hoveredTowerId, mapRef }) => {
+  
+  // Logic to determine where to render the portal tooltip
+  const renderTooltip = () => {
+    if (!hoveredTowerId || selectedTowerId === hoveredTowerId || !mapRef.current) return null;
+    
+    const tower = towers.find(t => t.id === hoveredTowerId);
+    if (!tower) return null;
+
+    const def = TOWER_TYPES[tower.typeId];
+    const mapRect = mapRef.current.getBoundingClientRect();
+    
+    // Position tooltip to the right of the tower in screen coordinates
+    const left = mapRect.left + (tower.x + 1) * tileSize + 8; // 8px gap
+    const top = mapRect.top + tower.y * tileSize;
+
+    // Portal to body
+    return createPortal(
+        <div 
+            className="fixed z-[9999] bg-gray-900/95 border border-gray-600 rounded p-2 shadow-2xl backdrop-blur-md pointer-events-none min-w-[120px]"
+            style={{ left: left, top: top }}
+        >
+             <div className="text-xs font-bold text-yellow-400 mb-1 whitespace-nowrap">{def.name}</div>
+             <div className="flex flex-col gap-1 text-[10px] whitespace-nowrap">
+                {def.type === 'ECONOMY' ? (
+                    <span title="Income">💰 +{def.income}/s</span>
+                ) : (
+                    <>
+                        <span title="Damage">⚔️ {def.damage} Dmg</span>
+                        <span title="Range">📏 {def.range} Rng</span>
+                        <span title="Speed">⏱️ {(1/def.cooldown).toFixed(1)}/s</span>
+                    </>
+                )}
+             </div>
+        </div>,
+        document.body
+    );
+  };
+
   return (
     <div className="absolute inset-0 pointer-events-none">
       {/* Towers */}
@@ -29,6 +69,9 @@ export const EntityLayer: React.FC<EntityLayerProps> = ({ enemies, towers, proje
          const scale = (1 + (tower.firePulse * 0.4)) * poopScale; 
          const recoilY = -tower.firePulse * 10; 
          
+         // Z-index: Selected/Hovered still higher than others inside container for range circle visibility
+         const zIndex = isHovered || isSelected ? 50 : 10;
+
          return (
             <div
                 key={tower.id}
@@ -37,7 +80,7 @@ export const EntityLayer: React.FC<EntityLayerProps> = ({ enemies, towers, proje
                     transform: `translate3d(${tower.x * tileSize}px, ${tower.y * tileSize + recoilY}px, 0) scale(${scale})`,
                     width: tileSize,
                     height: tileSize,
-                    zIndex: 10,
+                    zIndex: zIndex,
                     transition: 'transform 0.05s ease-out'
                 }}
             >
@@ -45,40 +88,26 @@ export const EntityLayer: React.FC<EntityLayerProps> = ({ enemies, towers, proje
                     {def.emoji}
                 </div>
                 
-                {/* Range Circle */}
+                {/* Range Circle - Keeps logic here inside map relative coordinates */}
                 {(isSelected || isHovered) && def.range > 0 && (
                     <div 
-                        className="absolute rounded-full border-2 border-dashed border-white/30 bg-white/5 z-0"
+                        className="absolute rounded-full border-2 border-dashed border-white/30 bg-white/5 pointer-events-none"
                         style={{
                             width: (def.range * 2 + 1) * tileSize,
                             height: (def.range * 2 + 1) * tileSize,
                             left: '50%',
                             top: '50%',
-                            transform: 'translate(-50%, -50%)'
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: -1 
                         }}
                     />
-                )}
-
-                {/* Stats Tooltip for Map Tower */}
-                {isHovered && !isSelected && (
-                    <div className="absolute top-0 left-full ml-2 z-50 bg-gray-900/95 border border-gray-600 rounded p-2 shadow-2xl backdrop-blur-md pointer-events-none">
-                         <div className="text-xs font-bold text-yellow-400 mb-1 whitespace-nowrap">{def.name}</div>
-                         <div className="flex gap-2 text-[10px] whitespace-nowrap">
-                            {def.type === 'ECONOMY' ? (
-                                <span title="Income">💰 +{def.income}/s</span>
-                            ) : (
-                                <>
-                                    <span title="Damage">⚔️ {def.damage}</span>
-                                    <span title="Range">📏 {def.range}</span>
-                                    <span title="Speed">⏱️ {(1/def.cooldown).toFixed(1)}/s</span>
-                                </>
-                            )}
-                         </div>
-                    </div>
                 )}
             </div>
          );
       })}
+
+      {/* Tooltip Portal */}
+      {renderTooltip()}
 
       {/* Enemies */}
       {enemies.map(enemy => {

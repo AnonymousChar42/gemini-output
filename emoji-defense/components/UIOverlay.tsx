@@ -6,6 +6,9 @@ interface UIOverlayProps {
   gold: number;
   lives: number;
   wave: number;
+  totalWaves: number;
+  waveEnemiesRemaining: number;
+  waveEnemiesTotal: number;
   selectedTile: {x: number, y: number} | null;
   selectedTower: Tower | null;
   onBuild: (typeId: string) => void;
@@ -16,7 +19,8 @@ interface UIOverlayProps {
 }
 
 export const UIOverlay: React.FC<UIOverlayProps> = ({ 
-  gold, lives, wave, selectedTile, selectedTower, 
+  gold, lives, wave, totalWaves, waveEnemiesRemaining, waveEnemiesTotal, 
+  selectedTile, selectedTower, 
   onBuild, onUpgrade, onSell, onDeselect, onExit 
 }) => {
   
@@ -40,19 +44,35 @@ export const UIOverlay: React.FC<UIOverlayProps> = ({
     onDeselect();
   };
 
+  // z-[1000] ensures UI sits above map entities
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 z-[1000]">
       {/* Top HUD */}
       <div className="flex justify-between items-start">
-        <div className="bg-gray-800/90 p-3 rounded-xl border-2 border-gray-600 shadow-xl backdrop-blur-sm pointer-events-auto flex gap-4 text-lg font-bold">
-            <div className="flex items-center text-yellow-400">
-                <span className="text-2xl mr-1">💰</span> {Math.floor(gold)}
+        <div className="bg-gray-800/90 p-3 rounded-xl border-2 border-gray-600 shadow-xl backdrop-blur-sm pointer-events-auto flex gap-5 text-lg font-bold items-center">
+            <div className="flex items-center text-yellow-400" title="Gold">
+                <span className="text-2xl mr-2">💰</span> {Math.floor(gold)}
             </div>
-            <div className="flex items-center text-red-400">
-                <span className="text-2xl mr-1">❤️</span> {lives}
+            <div className="flex items-center text-red-400" title="Lives">
+                <span className="text-2xl mr-2">❤️</span> {lives}
             </div>
-            <div className="flex items-center text-blue-400">
-                <span className="text-2xl mr-1">🌊</span> {wave}
+            
+            <div className="w-px h-8 bg-gray-600 mx-1"></div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col leading-none text-blue-400">
+                  <span className="text-xs text-blue-200 uppercase tracking-widest">Wave</span>
+                  <div className="text-lg">
+                    {wave} <span className="text-sm text-gray-500">/ {totalWaves}</span>
+                  </div>
+              </div>
+              
+              <div className="flex flex-col leading-none text-purple-400">
+                  <span className="text-xs text-purple-200 uppercase tracking-widest">Enemies</span>
+                  <div className="text-lg">
+                    {waveEnemiesRemaining} <span className="text-sm text-gray-500">/ {waveEnemiesTotal}</span>
+                  </div>
+              </div>
             </div>
         </div>
         

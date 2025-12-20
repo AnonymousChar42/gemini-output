@@ -86,7 +86,7 @@ function App() {
       {/* Header */}
       <header className="bg-slate-950 p-2 flex justify-between items-center shadow-md z-30">
         <h1 className="text-lg font-bold flex items-center gap-2">
-            <span className="text-2xl">🏙️</span>
+            <span className="text-2xl">🗼</span>
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500">
                 Oriental Pearl vs Mixue
             </span>
@@ -134,7 +134,7 @@ function App() {
         {/* Start Screen */}
         {gameState === 'START' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 z-50">
-                <div className="text-8xl mb-4 animate-bounce">🏙️ ⚡ ⛄</div>
+                <div className="text-8xl mb-4 animate-bounce">🗼 ⚡ ⛄</div>
                 <h1 className="text-4xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">
                     Defend the Pearl!
                 </h1>

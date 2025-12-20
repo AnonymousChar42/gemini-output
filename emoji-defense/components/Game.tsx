@@ -18,6 +18,7 @@ export const Game: React.FC<GameProps> = ({ onGameOver, onExit }) => {
   const projectilesRef = useRef<Projectile[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const incomeTimerRef = useRef<number>(0);
+  const mapRef = useRef<HTMLDivElement>(null);
   
   const waveStateRef = useRef({
     waveIndex: 0,
@@ -345,10 +346,20 @@ export const Game: React.FC<GameProps> = ({ onGameOver, onExit }) => {
      }
   };
 
+  // Calculate Wave Stats
+  const totalWaves = LEVEL_1.waves.length;
+  const currentWaveConfig = LEVEL_1.waves[waveStateRef.current.waveIndex];
+  const waveEnemiesTotal = currentWaveConfig ? currentWaveConfig.count : 0;
+  
+  // Active enemies + Enemies yet to spawn in this wave
+  const enemiesAlive = enemiesRef.current.length;
+  const enemiesToSpawn = currentWaveConfig ? Math.max(0, currentWaveConfig.count - waveStateRef.current.enemiesSpawned) : 0;
+  const waveEnemiesRemaining = enemiesAlive + enemiesToSpawn;
+
   return (
     <div className="relative w-full h-full flex flex-col bg-gray-900">
         <div className="flex-grow relative overflow-hidden flex justify-center items-center">
-            <div className="relative shadow-2xl border-4 border-gray-700 rounded-lg overflow-hidden bg-gray-800" style={{ width: 10 * TILE_SIZE, height: 10 * TILE_SIZE }}>
+            <div ref={mapRef} className="relative shadow-2xl border-4 border-gray-700 rounded-lg overflow-hidden bg-gray-800" style={{ width: 10 * TILE_SIZE, height: 10 * TILE_SIZE }}>
                 <MapRenderer 
                     map={LEVEL_1.map} 
                     tileSize={TILE_SIZE} 
@@ -365,6 +376,7 @@ export const Game: React.FC<GameProps> = ({ onGameOver, onExit }) => {
                     tileSize={TILE_SIZE}
                     selectedTowerId={selectedTowerId}
                     hoveredTowerId={hoveredTowerId}
+                    mapRef={mapRef}
                 />
             </div>
         </div>
@@ -373,6 +385,9 @@ export const Game: React.FC<GameProps> = ({ onGameOver, onExit }) => {
             gold={gold} 
             lives={lives} 
             wave={currentWave}
+            totalWaves={totalWaves}
+            waveEnemiesRemaining={waveEnemiesRemaining}
+            waveEnemiesTotal={waveEnemiesTotal}
             selectedTile={selectedTile}
             selectedTower={selectedTowerId ? towersRef.current.find(t => t.id === selectedTowerId) : null}
             onBuild={handleBuild}

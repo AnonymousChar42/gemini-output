@@ -27,7 +27,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onStart }) => {
         <div className="space-y-4 mb-8 text-left bg-gray-900/50 p-4 rounded-lg text-sm text-gray-300">
             <p>1. Build <span className="text-2xl">💩</span> towers to defend.</p>
             <p>2. Stop the <span className="text-white font-bold">(・ω・)</span> army.</p>
-            <p>3. Upgrade to <span className="text-2xl">🌋</span> and <span className="text-2xl">❄️</span>!</p>
+            <p>3. Upgrade to <span className="text-2xl">🌞</span> and <span className="text-2xl">⛄️</span>!</p>
         </div>
 
         <button 
