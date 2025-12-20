@@ -42,7 +42,7 @@ jobs:
             if [ -f "$dir/package.json" ]; then
               echo "Building project: $dir"
               cd "$dir"
-              pnpm install --frozen-lockfile
+              pnpm install
               pnpm run build
               cd ..
             fi
