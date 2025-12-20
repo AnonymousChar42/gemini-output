@@ -28,6 +28,12 @@ export enum TileType {
   BAT = 32,
   SKELETON = 33,
   MAGE = 34,
+  GHOST = 35,      // New
+  CROCODILE = 36,  // New
+  ALIEN = 37,      // New
+  DINOSAUR = 38,   // New
+  DEMON_GUARD = 39,// New
+
   BOSS = 99,
   
   // NPCs

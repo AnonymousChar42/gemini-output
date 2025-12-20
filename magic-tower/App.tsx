@@ -27,7 +27,7 @@ interface TileRenderProps {
 
 const TileRender: React.FC<TileRenderProps> = React.memo(({ type, onHover, onLeave }) => {
   let content = "";
-  let className = "w-full h-full flex items-center justify-center text-xl md:text-2xl select-none transition-all duration-200";
+  let className = "w-full h-full flex items-center justify-center text-xl md:text-2xl select-none transition-all duration-200 overflow-hidden";
   
   // Backgrounds
   let bgClass = "bg-slate-800"; // Empty floor
@@ -277,13 +277,18 @@ export default function App() {
 
   const getTile = (floor: number, x: number, y: number) => {
     if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return TileType.WALL;
-    return maps[floor][y][x];
+    // Add safety check for map existence
+    return maps[floor]?.[y]?.[x] ?? TileType.WALL;
   };
 
   const setTile = (floor: number, x: number, y: number, type: TileType) => {
     setMaps(prev => {
       const newMaps = [...prev];
+      if (!newMaps[floor]) return newMaps;
+      
       const newFloor = [...newMaps[floor]];
+      if (!newFloor[y]) return newMaps;
+
       const newRow = [...newFloor[y]];
       newRow[x] = type;
       newFloor[y] = newRow;
@@ -362,15 +367,21 @@ export default function App() {
         // Search for down stairs on next floor to place player
         const nextMap = maps[player.floor + 1];
         let found = false;
-        for(let r=0; r<BOARD_SIZE; r++){
-            for(let c=0; c<BOARD_SIZE; c++){
-                if(nextMap[r][c] === TileType.STAIRS_DOWN) {
-                    nextPlayerState.x = c;
-                    nextPlayerState.y = r;
-                    found = true;
+        
+        // Safety check to ensure nextMap is valid
+        if (nextMap && nextMap.length > 0) {
+            for(let r=0; r<BOARD_SIZE; r++){
+                if (!nextMap[r]) continue; // Skip missing rows
+                for(let c=0; c<BOARD_SIZE; c++){
+                    if(nextMap[r][c] === TileType.STAIRS_DOWN) {
+                        nextPlayerState.x = c;
+                        nextPlayerState.y = r;
+                        found = true;
+                    }
                 }
             }
         }
+        
         if(!found) { nextPlayerState.x = newX; nextPlayerState.y = newY; } 
         log(`Ascended to Floor ${nextPlayerState.floor + 1}`);
         blocked = true;
@@ -380,15 +391,21 @@ export default function App() {
         nextPlayerState.floor -= 1;
         const prevMap = maps[player.floor - 1];
         let found = false;
-        for(let r=0; r<BOARD_SIZE; r++){
-            for(let c=0; c<BOARD_SIZE; c++){
-                if(prevMap[r][c] === TileType.STAIRS_UP) {
-                    nextPlayerState.x = c;
-                    nextPlayerState.y = r;
-                    found = true;
+        
+        // Safety check
+        if (prevMap && prevMap.length > 0) {
+            for(let r=0; r<BOARD_SIZE; r++){
+                if (!prevMap[r]) continue; // Skip missing rows
+                for(let c=0; c<BOARD_SIZE; c++){
+                    if(prevMap[r][c] === TileType.STAIRS_UP) {
+                        nextPlayerState.x = c;
+                        nextPlayerState.y = r;
+                        found = true;
+                    }
                 }
             }
         }
+        
         if(!found) { nextPlayerState.x = newX; nextPlayerState.y = newY; }
 
         log(`Descended to Floor ${nextPlayerState.floor + 1}`);
@@ -524,6 +541,51 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [movePlayer, showShop]);
 
+  // --- Debug / Cheats ---
+  useEffect(() => {
+    // Expose cheat functions to window
+    (window as any).cheat = () => {
+      setPlayer(prev => ({
+        ...prev,
+        hp: 99999,
+        atk: 9999,
+        def: 9999,
+        gold: 99999,
+        keys: { yellow: 50, blue: 50, red: 50 }
+      }));
+      log("⚡ CHEAT ACTIVATED: GOD MODE ⚡");
+    };
+
+    (window as any).setDef = (value: number) => {
+       setPlayer(prev => ({ ...prev, def: value }));
+       log(`🛡️ DEBUG: Defense set to ${value}`);
+    };
+    
+    (window as any).setAtk = (value: number) => {
+       setPlayer(prev => ({ ...prev, atk: value }));
+       log(`⚔️ DEBUG: Attack set to ${value}`);
+    };
+
+    (window as any).setHp = (value: number) => {
+       setPlayer(prev => ({ ...prev, hp: value }));
+       log(`❤️ DEBUG: HP set to ${value}`);
+    };
+
+    console.log("%c 🧙‍♂️ Magic Tower Debugger Loaded", "color: yellow; font-weight: bold; font-size: 14px");
+    console.log("Commands available:");
+    console.log("- cheat(): God Mode");
+    console.log("- setDef(999): Set Defense");
+    console.log("- setAtk(999): Set Attack");
+    console.log("- setHp(10000): Set HP");
+
+    return () => {
+      delete (window as any).cheat;
+      delete (window as any).setDef;
+      delete (window as any).setAtk;
+      delete (window as any).setHp;
+    };
+  }, []);
+
   // --- Auto-scroll messages ---
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -606,114 +668,67 @@ export default function App() {
         <div className="mt-4 border-t border-slate-600 pt-3 grid grid-cols-3 gap-2 text-center">
           <div className="bg-yellow-900/50 p-2 rounded border border-yellow-700">
             <div className="text-yellow-400 text-xl">🔑</div>
-            <div className="font-bold">{player.keys.yellow}</div>
+            <div className="text-yellow-200 font-bold text-lg">{player.keys.yellow}</div>
           </div>
           <div className="bg-blue-900/50 p-2 rounded border border-blue-700">
             <div className="text-blue-400 text-xl">🔑</div>
-            <div className="font-bold">{player.keys.blue}</div>
+            <div className="text-blue-200 font-bold text-lg">{player.keys.blue}</div>
           </div>
           <div className="bg-red-900/50 p-2 rounded border border-red-700">
-            <div className="text-red-400 text-xl">🔑</div>
-            <div className="font-bold">{player.keys.red}</div>
+            <div className="text-red-500 text-xl">🔑</div>
+            <div className="text-red-200 font-bold text-lg">{player.keys.red}</div>
           </div>
         </div>
       </div>
 
-      {/* --- Center: Game Board --- */}
-      <div className="relative bg-black p-2 rounded-lg shadow-2xl border-4 border-slate-600 z-0">
+      {/* --- Main Game Grid --- */}
+      <div className="relative">
         <div 
-          className="grid gap-0.5" 
-          style={{ 
+          className="grid gap-0 bg-slate-950 border-4 border-slate-500 shadow-2xl relative"
+          style={{
             gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${BOARD_SIZE}, minmax(0, 1fr))`, // Fixed height inconsistency
-            width: 'min(90vw, 500px)',
-            height: 'min(90vw, 500px)',
+            gridTemplateRows: `repeat(${BOARD_SIZE}, minmax(0, 1fr))`,
+            width: 'min(90vw, 600px)',
+            height: 'min(90vw, 600px)',
           }}
         >
-          {currentMap.map((row, y) => (
-            row.map((cellType, x) => {
-              // Override render for Player
-              let typeToRender = cellType;
-              if (player.x === x && player.y === y) {
-                typeToRender = TileType.HERO;
-              }
-              return (
-                <TileRender 
-                  key={`${x}-${y}`} 
-                  type={typeToRender} 
-                  x={x} 
-                  y={y} 
-                  onHover={handleTileHover}
-                  onLeave={handleTileLeave}
-                />
-              );
-            })
+          {Array.from({ length: BOARD_SIZE }).map((_, y) => (
+             Array.from({ length: BOARD_SIZE }).map((_, x) => {
+               // Render player on top of tile if matches coords
+               let type = currentMap?.[y]?.[x] ?? TileType.WALL; // Safe access
+               if (player.x === x && player.y === y) {
+                 type = TileType.HERO;
+               }
+
+               return (
+                 <div key={`${x}-${y}`} className="w-full h-full border-[0.5px] border-slate-800/50">
+                    <TileRender 
+                      type={type} 
+                      x={x} 
+                      y={y}
+                      onHover={handleTileHover}
+                      onLeave={handleTileLeave}
+                    />
+                 </div>
+               );
+             })
           ))}
         </div>
       </div>
 
-      {/* --- Right Panel: Info / Controls --- */}
-      <div className="w-full max-w-sm flex flex-col gap-4 h-[500px] z-10">
-        {/* Message Log */}
-        <div className="bg-slate-800 border-2 border-slate-600 rounded-lg p-3 flex-1 overflow-y-auto shadow-inner text-sm font-mono">
-          <div className="text-slate-400 text-center border-b border-slate-700 pb-1 mb-2">Game Log</div>
-          {messages.map((m, i) => (
-            <div key={i} className="mb-1 border-b border-slate-700/50 pb-1 last:border-0 animate-fade-in">
-              {m.startsWith("Cannot") || m.startsWith("Too") ? <span className="text-red-400">{m}</span> :
-               m.startsWith("Defeated") ? <span className="text-green-400">{m}</span> :
-               m.startsWith("Bought") ? <span className="text-yellow-400">{m}</span> :
-               <span className="text-slate-300">{m}</span>}
+      {/* --- Right Panel: Log --- */}
+      <div className="w-full max-w-sm h-[300px] bg-black/80 border border-slate-600 rounded-lg p-4 font-mono text-sm overflow-hidden flex flex-col shadow-xl">
+        <div className="font-bold text-green-400 mb-2 border-b border-green-800 pb-1">GAME LOG</div>
+        <div className="flex-1 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-slate-700">
+          {messages.map((msg, idx) => (
+            <div key={idx} className="text-slate-300 border-l-2 border-slate-700 pl-2 py-1 animate-fade-in">
+              {msg}
             </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
-
-        {/* Mobile Controls */}
-        <div className="grid grid-cols-3 gap-2 h-32 md:hidden">
-            <div />
-            <button className="bg-slate-700 rounded active:bg-slate-600 text-2xl shadow-lg" onClick={() => movePlayer(0, -1)}>⬆️</button>
-            <div />
-            <button className="bg-slate-700 rounded active:bg-slate-600 text-2xl shadow-lg" onClick={() => movePlayer(-1, 0)}>⬅️</button>
-            <div className="flex items-center justify-center text-slate-500 text-xs">PAD</div>
-            <button className="bg-slate-700 rounded active:bg-slate-600 text-2xl shadow-lg" onClick={() => movePlayer(1, 0)}>➡️</button>
-            <div />
-            <button className="bg-slate-700 rounded active:bg-slate-600 text-2xl shadow-lg" onClick={() => movePlayer(0, 1)}>⬇️</button>
-            <div />
-        </div>
-
-        {/* Combat Prediction (Static List for Overview) */}
-        <div className="bg-slate-800 border-2 border-slate-600 rounded-lg p-3 hidden md:block overflow-y-auto h-40">
-           <div className="text-slate-400 text-center text-xs mb-2">Enemy Stats (On this Floor)</div>
-           <div className="text-xs space-y-1">
-             {Object.keys(MONSTERS).map(id => {
-               const mid = parseInt(id);
-               // Only show if monster exists on this floor
-               let exists = false;
-               for(let r=0; r<BOARD_SIZE; r++) if(currentMap[r].includes(mid)) exists = true;
-               
-               if(!exists) return null;
-               
-               const m = MONSTERS[mid];
-               const result = calculateCombat(mid, player);
-               
-               return (
-                 <div key={mid} className="flex justify-between items-center bg-slate-700/50 p-1 rounded hover:bg-slate-600 transition-colors cursor-pointer" onMouseEnter={(e) => handleTileHover(mid as TileType, e)} onMouseLeave={handleTileLeave}>
-                   <div className="flex items-center gap-2">
-                     <span>{m.symbol}</span>
-                     <span className={result.canBeat ? "text-slate-200" : "text-red-500"}>{m.name}</span>
-                   </div>
-                   <div className="text-right">
-                     <div className="font-bold text-[10px] text-slate-400">{m.hp}HP/{m.atk}A/{m.def}D <span className="text-yellow-400">+{m.gold}G</span></div>
-                     <div className={result.canBeat ? (result.damageTaken === 0 ? "text-green-400" : "text-yellow-400") : "text-red-500 font-bold"}>
-                       {result.canBeat ? `-${result.damageTaken} HP` : "Too Strong"}
-                     </div>
-                   </div>
-                 </div>
-               );
-             })}
-           </div>
-        </div>
       </div>
+
     </div>
   );
 }

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>抗战射击 - 历史互动体验</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
+      
+      body {
+        font-family: 'Noto Serif SC', serif;
+        overflow: hidden;
+        user-select: none;
+        background-color: #1a1a1a;
+      }
+      
+      .crosshair-area {
+        cursor: crosshair;
+      }
+
+      @keyframes ping-slow {
+        75%, 100% {
+          transform: scale(2);
+          opacity: 0;
+        }
+      }
+      .animate-ping-slow {
+        animation: ping-slow 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+      }
+      
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #2d2d2d; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #555; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #777; 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
