@@ -1,0 +1,5 @@
+{
+  "name": "Emoji Gold Miner",
+  "description": "A classic Gold Miner game built with Phaser and React using Emojis as assets. Aim the hook, catch gold, and beat the target score before time runs out!",
+  "requestFramePermissions": []
+}
