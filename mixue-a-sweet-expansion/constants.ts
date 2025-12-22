@@ -1,7 +1,7 @@
 import { Tech, TechCategory, Flavor } from './types';
 
 export const TOTAL_POPULATION_ESTIMATE = 1400000000;
-export const WIN_THRESHOLD_PROVINCES = 34;
+// WIN_THRESHOLD_PROVINCES removed in favor of dynamic calculation
 export const MAX_DAYS = 1000;
 
 export const PROVINCE_FLAVORS: Flavor[] = [
@@ -38,7 +38,8 @@ export const PROVINCE_FLAVORS: Flavor[] = [
   { province: "新疆", name: "葡萄干奶茶", description: "奶茶底浸泡新疆葡萄干与坚果碎，果香浓郁。" },
   { province: "香港", name: "港式茶餐厅奶茶", description: "丝袜茶底浓烈醇厚，配淡奶经典比例。" },
   { province: "澳门", name: "赌场限定奶茶", description: "金箔点缀，杯型似骰盅，附送“好运签”。" },
-  { province: "台湾", name: "QQㄋㄟㄋㄟ好喝到咩噗茶", description: "珍珠、芋圆、布丁堆叠出丰富嚼感，甜度爆表。" }
+  { province: "台湾", name: "QQㄋㄟㄋㄟ好喝到咩噗茶", description: "珍珠、芋圆、布丁堆叠出丰富嚼感，甜度爆表。" },
+  { province: "南海诸岛", name: "海风味奶茶", description: "萃取深海微量元素，自带天然海盐的咸鲜与清冽，仿佛海风拂面。" }
 ];
 
 export const TECH_TREE_DATA: Tech[] = [
@@ -74,7 +75,7 @@ export const PROVINCE_ADJACENCY: Record<string, string[]> = {
   "江苏": ["上海", "浙江", "安徽", "山东"],
   "浙江": ["上海", "江苏", "安徽", "江西", "福建"],
   "安徽": ["江苏", "浙江", "江西", "湖北", "河南", "山东"],
-  "福建": ["浙江", "江西", "广东"],
+  "福建": ["浙江", "江西", "广东", "台湾"], // Added Taiwan link
   "江西": ["浙江", "安徽", "湖北", "湖南", "广东", "福建"],
   "山东": ["河北", "河南", "安徽", "江苏"],
   "河南": ["河北", "山西", "陕西", "湖北", "安徽", "山东"],
@@ -82,7 +83,7 @@ export const PROVINCE_ADJACENCY: Record<string, string[]> = {
   "湖南": ["湖北", "重庆", "贵州", "广西", "广东", "江西"],
   "广东": ["福建", "江西", "湖南", "广西", "海南", "香港", "澳门"],
   "广西": ["云南", "贵州", "湖南", "广东"],
-  "海南": ["广东"],
+  "海南": ["广东", "台湾", "南海诸岛"], // Added Taiwan and Nanhai links
   "重庆": ["陕西", "四川", "贵州", "湖南", "湖北"],
   "四川": ["青海", "甘肃", "陕西", "重庆", "贵州", "云南", "西藏"],
   "贵州": ["四川", "重庆", "湖南", "广西", "云南"],
@@ -95,5 +96,6 @@ export const PROVINCE_ADJACENCY: Record<string, string[]> = {
   "新疆": ["甘肃", "青海", "西藏"],
   "香港": ["广东"],
   "澳门": ["广东"],
-  "台湾": ["福建"] // Simplified maritime link
+  "台湾": ["福建", "海南", "南海诸岛"], // Added Hainan and Nanhai links
+  "南海诸岛": ["海南", "台湾"] // Added Nanhai links
 };

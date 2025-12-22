@@ -41,6 +41,59 @@ const Star: React.FC<{ position: [number, number, number] }> = ({ position }) =>
   );
 };
 
+const Ribbon: React.FC = () => {
+  const curve = useMemo(() => {
+    const points = [];
+    const height = 10;
+    const turns = 5;
+    const count = 100;
+    
+    // Generate spiral points
+    for (let i = 0; i <= count; i++) {
+      const t = i / count;
+      const y = t * height;
+      // Radius: Base ~4.0 shrinking to 0.2 at top
+      // Slightly larger than tree radius (3.5) to float outside
+      const r = 4.0 * (1 - t) + 0.2; 
+      // Angle: Spiral
+      const angle = t * Math.PI * 2 * turns;
+      points.push(new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r));
+    }
+    return new THREE.CatmullRomCurve3(points);
+  }, []);
+
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  useFrame((state) => {
+    if (matRef.current) {
+      // Pulse effect for the light band
+      const t = state.clock.getElapsedTime();
+      // Oscillate brightness for glowing effect
+      const lightness = 0.6 + Math.sin(t * 3) * 0.3; 
+      // Warm Golden Light
+      matRef.current.color.setHSL(0.12, 1, lightness);
+    }
+  });
+
+  return (
+    <mesh>
+      <tubeGeometry args={[curve, 128, 0.06, 8, false]} />
+      <meshBasicMaterial ref={matRef} toneMapped={false} />
+    </mesh>
+  );
+};
+
+// Helper to rotate the ribbon along with the tree visually
+const TreeRotator: React.FC<{children: React.ReactNode}> = ({ children }) => {
+    const groupRef = useRef<THREE.Group>(null);
+    useFrame((state) => {
+        if(groupRef.current) {
+            groupRef.current.rotation.y = state.clock.getElapsedTime() * 0.1;
+        }
+    });
+    return <group ref={groupRef}>{children}</group>;
+}
+
 const Tree: React.FC<TreeProps> = ({ position = [0, -2, 0] }) => {
   const pointsRef = useRef<THREE.Points>(null);
 
@@ -150,6 +203,11 @@ const Tree: React.FC<TreeProps> = ({ position = [0, -2, 0] }) => {
           alphaTest={0.01}
         />
       </points>
+
+      {/* Ribbon that rotates with the tree */}
+      <TreeRotator>
+         <Ribbon />
+      </TreeRotator>
       
       {/* 5-Pointed Star at the top, slightly higher */}
       <Star position={[0, 10.2, 0]} />

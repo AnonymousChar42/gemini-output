@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, ProvinceStatus, Tech, ProvinceData, TechCategory, Bubble, Flight } from '../types';
-import { TECH_TREE_DATA, PROVINCE_ADJACENCY, PROVINCE_FLAVORS, WIN_THRESHOLD_PROVINCES, MAX_DAYS } from '../constants';
+import { TECH_TREE_DATA, PROVINCE_ADJACENCY, PROVINCE_FLAVORS, MAX_DAYS } from '../constants';
 
-const TICK_RATE_MS = 1000; // Slower tick rate (1 second)
+const TICK_RATE_MS = 1000; // Base tick rate (1 second)
 const BUBBLE_LIFETIME_MS = 8000; // Bubbles disappear after 8 seconds
 
 export const useGameLogic = () => {
@@ -21,18 +21,36 @@ export const useGameLogic = () => {
     gameLost: false,
     selectedProvince: null,
     hasStarted: false,
+    timeScale: 1,
+    totalTargetProvinces: 0,
   });
+
+  // Expose Debug Function
+  useEffect(() => {
+    (window as any).setGameSpeed = (speed: number) => {
+        setGameState(prev => ({ ...prev, timeScale: speed }));
+        console.log(`[Debug] Game speed set to ${speed}x`);
+    };
+  }, []);
 
   const lastTickRef = useRef<number>(0);
 
-  // Initialize Provinces based on GeoJSON data later, but for now we need an empty state waiting for selection
+  // Initialize Provinces based on GeoJSON data
   const initializeProvinces = useCallback((provincesData: ProvinceData[]) => {
     setGameState(prev => {
       const newProvinces: Record<string, ProvinceData> = {};
       provincesData.forEach(p => {
         newProvinces[p.name] = p;
       });
-      return { ...prev, provinces: newProvinces };
+      
+      // Calculate target based on Adjacency list
+      const targetCount = Object.keys(PROVINCE_ADJACENCY).length;
+
+      return { 
+          ...prev, 
+          provinces: newProvinces,
+          totalTargetProvinces: targetCount 
+      };
     });
   }, []);
 
@@ -100,6 +118,9 @@ export const useGameLogic = () => {
   useEffect(() => {
     if (!gameState.isRunning || gameState.gameWon || gameState.gameLost) return;
 
+    // Use timeScale to determine interval duration
+    const intervalDuration = TICK_RATE_MS / (gameState.timeScale || 1);
+
     const tick = setInterval(() => {
       setGameState(prev => {
         const now = Date.now();
@@ -112,7 +133,6 @@ export const useGameLogic = () => {
         let newMoney = prev.money;
         let totalShops = 0;
         let infectedCount = 0;
-        let fullyConqueredCount = 0;
         const newNews = [...prev.news];
         let newBubbles = [...prev.bubbles];
         
@@ -153,10 +173,6 @@ export const useGameLogic = () => {
             p.status = ProvinceStatus.CONQUERED;
             newNews.push(`${p.name} 市场已完全占领！`);
             newMoney += 5; 
-          }
-
-          if (p.status === ProvinceStatus.CONQUERED) {
-            fullyConqueredCount++;
           }
           
           infectedCount++;
@@ -262,7 +278,24 @@ export const useGameLogic = () => {
 
         // 4. Win/Loss Check
         const day = prev.day + 1;
-        let gameWon = fullyConqueredCount >= WIN_THRESHOLD_PROVINCES;
+        
+        // Use a strict Set match against the Adjacency List for victory
+        const targetSet = new Set(Object.keys(PROVINCE_ADJACENCY));
+        let conqueredCount = 0;
+        let allTargetsConquered = true;
+
+        targetSet.forEach(targetName => {
+            const province = newProvinces[targetName];
+            // Check if the province exists in current game state AND is fully conquered
+            if (province && province.status === ProvinceStatus.CONQUERED) {
+                conqueredCount++;
+            } else {
+                allTargetsConquered = false;
+            }
+        });
+        
+        const totalTargets = targetSet.size;
+        let gameWon = totalTargets > 0 && allTargetsConquered;
         let gameLost = day > MAX_DAYS && !gameWon;
 
         return {
@@ -271,7 +304,8 @@ export const useGameLogic = () => {
           money: newMoney,
           provinces: newProvinces,
           totalShops,
-          marketShare: (fullyConqueredCount / WIN_THRESHOLD_PROVINCES) * 100,
+          // Market share is now based strictly on the target list
+          marketShare: totalTargets > 0 ? (conqueredCount / totalTargets) * 100 : 0,
           news: newNews.slice(-5), 
           bubbles: newBubbles,
           flights: newFlights,
@@ -280,10 +314,10 @@ export const useGameLogic = () => {
           isRunning: !gameWon && !gameLost
         };
       });
-    }, TICK_RATE_MS);
+    }, intervalDuration);
 
     return () => clearInterval(tick);
-  }, [gameState.isRunning, gameState.gameWon, gameState.gameLost, purchaseTech]);
+  }, [gameState.isRunning, gameState.gameWon, gameState.gameLost, purchaseTech, gameState.timeScale]);
 
   return {
     gameState,

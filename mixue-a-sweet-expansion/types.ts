@@ -68,4 +68,6 @@ export interface GameState {
   gameLost: boolean;
   selectedProvince: string | null; // For starting the game
   hasStarted: boolean;
+  timeScale: number; // Game speed multiplier
+  totalTargetProvinces: number; // Total provinces required for victory
 }
