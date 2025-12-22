@@ -45,6 +45,14 @@ export interface Bubble {
   createdAt: number;
 }
 
+export interface Flight {
+  id: string;
+  from: string;
+  to: string;
+  startTime: number;
+  duration: number;
+}
+
 export interface GameState {
   money: number; // Creative Points
   day: number;
@@ -53,6 +61,7 @@ export interface GameState {
   provinces: Record<string, ProvinceData>; // Keyed by name (e.g., "河南")
   techs: Record<string, Tech>;
   bubbles: Bubble[];
+  flights: Flight[];
   news: string[];
   isRunning: boolean;
   gameWon: boolean;

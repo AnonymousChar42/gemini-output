@@ -1,5 +1,5 @@
-import React, { useRef, useMemo, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
+import { useFrame, useLoader } from '@react-three/fiber';
 import { Sphere, OrbitControls, Stars, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import { CITIES, ROUTES } from '../constants';
@@ -32,6 +32,100 @@ const CityMarker: React.FC<{ cityKey: string; isHovered: boolean }> = ({ cityKey
   );
 };
 
+// Detailed Plane Model - Tech/Monochrome Style
+const PlaneModel = ({ color }: { color: string }) => {
+  const isHovered = color === '#F97316';
+  
+  // Monochrome/Metallic Palette for non-hover state
+  const baseColor = isHovered ? '#F97316' : '#F1F5F9';     // Slate 100 (White-ish)
+  const secondaryColor = isHovered ? '#F97316' : '#CBD5E1'; // Slate 300 (Light Grey)
+  const engineColor = isHovered ? '#FB923C' : '#94A3B8';    // Slate 400 (Grey)
+  const cockpitColor = isHovered ? '#1E293B' : '#0F172A';   // Dark Slate
+
+  return (
+    <group>
+      {/* Fuselage Group */}
+      <group rotation={[Math.PI / 2, 0, 0]}>
+        {/* Main Body */}
+        <mesh>
+            <cylinderGeometry args={[0.011, 0.011, 0.10, 16]} />
+            <meshBasicMaterial color={baseColor} />
+        </mesh>
+        {/* Nose */}
+        <mesh position={[0, 0.06, 0]}>
+             <cylinderGeometry args={[0.001, 0.011, 0.02, 16]} />
+             <meshBasicMaterial color={baseColor} />
+        </mesh>
+         {/* Tail Cone */}
+        <mesh position={[0, -0.065, 0]}>
+             <cylinderGeometry args={[0.011, 0.005, 0.03, 16]} />
+             <meshBasicMaterial color={baseColor} />
+        </mesh>
+      </group>
+
+      {/* Cockpit */}
+      <mesh position={[0, 0.008, 0.055]} rotation={[0.4, 0, 0]}>
+         <boxGeometry args={[0.009, 0.005, 0.012]} />
+         <meshBasicMaterial color={cockpitColor} />
+      </mesh>
+
+      {/* Wings Group */}
+      <group position={[0, -0.002, 0.015]}>
+          {/* Left Wing */}
+          <group position={[-0.018, 0, 0]}>
+            <mesh rotation={[0, -0.4, 0]}>
+                <boxGeometry args={[0.09, 0.002, 0.025]} />
+                <meshBasicMaterial color={secondaryColor} />
+            </mesh>
+            {/* Engine Left */}
+            <mesh position={[-0.025, -0.006, 0.01]} rotation={[Math.PI/2, 0, 0]}>
+                <cylinderGeometry args={[0.004, 0.003, 0.015, 8]} />
+                <meshBasicMaterial color={engineColor} />
+            </mesh>
+            {/* Winglet Left */}
+             <mesh position={[-0.045, 0.005, -0.01]} rotation={[0, 0, 0.5]}>
+                <boxGeometry args={[0.002, 0.015, 0.01]} />
+                <meshBasicMaterial color={baseColor} />
+            </mesh>
+          </group>
+
+          {/* Right Wing */}
+          <group position={[0.018, 0, 0]}>
+             <mesh rotation={[0, 0.4, 0]}>
+                <boxGeometry args={[0.09, 0.002, 0.025]} />
+                <meshBasicMaterial color={secondaryColor} />
+            </mesh>
+            {/* Engine Right */}
+            <mesh position={[0.025, -0.006, 0.01]} rotation={[Math.PI/2, 0, 0]}>
+                <cylinderGeometry args={[0.004, 0.003, 0.015, 8]} />
+                <meshBasicMaterial color={engineColor} />
+            </mesh>
+             {/* Winglet Right */}
+             <mesh position={[0.045, 0.005, -0.01]} rotation={[0, 0, -0.5]}>
+                <boxGeometry args={[0.002, 0.015, 0.01]} />
+                <meshBasicMaterial color={baseColor} />
+            </mesh>
+          </group>
+      </group>
+
+      {/* Tail Group */}
+      <group position={[0, 0, -0.065]}>
+        {/* Vertical Stabilizer */}
+        <mesh position={[0, 0.025, 0]} rotation={[0.5, 0, 0]}>
+            <boxGeometry args={[0.002, 0.05, 0.03]} />
+            <meshBasicMaterial color={baseColor} />
+        </mesh>
+        
+        {/* Horizontal Stabilizers */}
+        <mesh position={[0, 0.005, -0.005]}>
+             <boxGeometry args={[0.06, 0.002, 0.018]} />
+             <meshBasicMaterial color={secondaryColor} />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
 const FlightPath: React.FC<{ 
   route: FlightRoute; 
   onSelect: (route: FlightRoute) => void; 
@@ -44,18 +138,35 @@ const FlightPath: React.FC<{
   const curve = useMemo(() => getSplineFromCoords(startCity.coords, endCity.coords, GLOBE_RADIUS), [startCity, endCity]);
   const points = useMemo(() => curve.getPoints(50), [curve]);
   
-  const planeRef = useRef<THREE.Mesh>(null);
+  const planeGroupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
 
+  // Temporary vectors to avoid garbage collection
+  const forwardRef = useRef(new THREE.Vector3());
+  const upRef = useRef(new THREE.Vector3());
+  const rightRef = useRef(new THREE.Vector3());
+  const matrixRef = useRef(new THREE.Matrix4());
+
   useFrame((state) => {
-    if (planeRef.current) {
+    if (planeGroupRef.current) {
       // Calculate position based on time
-      const t = (state.clock.getElapsedTime() * 0.1 + route.progress) % 1;
+      const t = (state.clock.getElapsedTime() * 0.05 + route.progress) % 1; 
       const pos = curve.getPoint(t);
-      const tangent = curve.getTangent(t);
+      const tangent = curve.getTangent(t).normalize();
       
-      planeRef.current.position.copy(pos);
-      planeRef.current.lookAt(pos.clone().add(tangent));
+      // Calculate orientation matrix manually to ensure "up" is away from center
+      const forward = forwardRef.current.copy(tangent);
+      const up = upRef.current.copy(pos).normalize(); // Up is radial from sphere center
+      const right = rightRef.current.crossVectors(up, forward).normalize();
+      
+      // Recalculate up to ensure orthogonality (Forward x Right)
+      up.crossVectors(forward, right).normalize();
+      
+      // Create rotation matrix
+      const matrix = matrixRef.current.makeBasis(right, up, forward);
+      
+      planeGroupRef.current.position.copy(pos);
+      planeGroupRef.current.quaternion.setFromRotationMatrix(matrix);
     }
   });
 
@@ -73,9 +184,9 @@ const FlightPath: React.FC<{
         onClick={() => onSelect(route)}
       />
 
-      {/* The Plane */}
-      <mesh 
-        ref={planeRef} 
+      {/* The Plane Wrapper Group */}
+      <group 
+        ref={planeGroupRef} 
         onClick={(e) => {
           e.stopPropagation();
           onSelect(route);
@@ -89,74 +200,138 @@ const FlightPath: React.FC<{
             setHovered(false);
         }}
       >
-        <coneGeometry args={[0.04, 0.12, 8]} />
-        <meshBasicMaterial color={hovered ? "#F97316" : "#ffffff"} />
-      </mesh>
+        {/* Visual Model - Scaled down to 40% */}
+        <group scale={[0.4, 0.4, 0.4]}>
+            <PlaneModel color={hovered ? "#F97316" : "#ffffff"} />
+        </group>
+        
+        {/* Invisible Hitbox for easier clicking - Kept large */}
+        <mesh visible={false}>
+            <sphereGeometry args={[0.06]} />
+            <meshBasicMaterial color="red" />
+        </mesh>
+      </group>
     </group>
   );
 };
 
+// Earth texture URL for sampling (Spec map usually has high contrast for land/sea)
+const EARTH_TEXTURE_URL = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg';
+
 const EarthMesh = () => {
-  // Creating a particle sphere
-  const particlesCount = 3000;
-  const positions = useMemo(() => {
-    const posArray = new Float32Array(particlesCount * 3);
-    const phi = Math.PI * (3 - Math.sqrt(5)); // golden angle
+  // Load the texture to use as a data source
+  const earthMap = useLoader(THREE.TextureLoader, EARTH_TEXTURE_URL);
+  
+  // Create particles based on the texture data
+  const { positions, colors } = useMemo(() => {
+    const particleCount = 45000; // High count for dense land
+    const posArray = [];
+    const colArray = [];
     
-    for(let i = 0; i < particlesCount; i++) {
-        const y = 1 - (i / (particlesCount - 1)) * 2;
-        const radius = Math.sqrt(1 - y * y);
-        const theta = phi * i;
+    // Create an off-screen canvas to read pixel data
+    const canvas = document.createElement('canvas');
+    canvas.width = earthMap.image.width;
+    canvas.height = earthMap.image.height;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+        ctx.drawImage(earthMap.image, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+
+        // Helper to get brightness at UV coordinates
+        const isLand = (u: number, v: number) => {
+            const x = Math.floor(u * canvas.width);
+            const y = Math.floor((1 - v) * canvas.height); // Flip Y for canvas
+            const index = (y * canvas.width + x) * 4;
+            
+            // In the specular map, Ocean is bright (white/grey) and Land is dark (black).
+            // We want points on Land, so we check for LOW brightness.
+            return data[index] < 50; 
+        };
+
+        const phi = Math.PI * (3 - Math.sqrt(5)); // golden angle
         
-        const x = Math.cos(theta) * radius;
-        const z = Math.sin(theta) * radius;
-        
-        posArray[i * 3] = x * GLOBE_RADIUS;
-        posArray[i * 3 + 1] = y * GLOBE_RADIUS;
-        posArray[i * 3 + 2] = z * GLOBE_RADIUS;
+        for (let i = 0; i < particleCount; i++) {
+            const y = 1 - (i / (particleCount - 1)) * 2;
+            const radius = Math.sqrt(1 - y * y);
+            const theta = phi * i;
+            
+            const x = Math.cos(theta) * radius;
+            const z = Math.sin(theta) * radius;
+            
+            // Convert to UV to check map
+            // Note: UV mapping for sphere needs to match the texture's projection
+            const u = (Math.atan2(x, z) / (2 * Math.PI)) + 0.5;
+            const v = y * 0.5 + 0.5;
+
+            if (isLand(u, v)) {
+                posArray.push(x * GLOBE_RADIUS, y * GLOBE_RADIUS, z * GLOBE_RADIUS);
+                // Add some variation to color
+                if (Math.random() > 0.8) {
+                    colArray.push(0.8, 0.9, 1.0); // Bright white-blue
+                } else {
+                    colArray.push(0.05, 0.4, 0.8); // Darker tech blue
+                }
+            }
+        }
     }
-    return posArray;
-  }, []);
+
+    return {
+        positions: new Float32Array(posArray),
+        colors: new Float32Array(colArray)
+    };
+
+  }, [earthMap]);
 
   return (
     <group>
-        {/* Core Black Sphere to block background stars */}
-        <Sphere args={[GLOBE_RADIUS - 0.05, 32, 32]}>
+        {/* Core Black Sphere to block background stars and provide contrast */}
+        <Sphere args={[GLOBE_RADIUS - 0.05, 48, 48]}>
             <meshBasicMaterial color="#020617" />
         </Sphere>
         
-        {/* Particle Cloud */}
-        <points>
-            <bufferGeometry>
-                <bufferAttribute
-                    attach="attributes-position"
-                    count={particlesCount}
-                    array={positions}
-                    itemSize={3}
+        {/* Land Particles Group - Rotated to align with City Coordinates */}
+        {/* Rotation Y: 90 degrees fixes the alignment between texture sampling and spherical coordinates */}
+        <group rotation={[0, Math.PI / 2, 0]}>
+            <points>
+                <bufferGeometry>
+                    <bufferAttribute
+                        attach="attributes-position"
+                        count={positions.length / 3}
+                        array={positions}
+                        itemSize={3}
+                    />
+                    <bufferAttribute
+                        attach="attributes-color"
+                        count={colors.length / 3}
+                        array={colors}
+                        itemSize={3}
+                    />
+                </bufferGeometry>
+                <pointsMaterial
+                    size={0.02}
+                    vertexColors
+                    sizeAttenuation={true}
+                    transparent={true}
+                    opacity={0.9}
+                    blending={THREE.AdditiveBlending}
                 />
-            </bufferGeometry>
-            <pointsMaterial
-                size={0.03}
-                color="#1e293b" // Slate 800
-                sizeAttenuation={true}
-                transparent={true}
-                opacity={0.8}
-            />
-        </points>
+            </points>
+        </group>
 
-        {/* Wireframe Overlay for structure */}
+        {/* Wireframe Overlay for structure - make it very subtle */}
          <mesh>
-            <sphereGeometry args={[GLOBE_RADIUS, 24, 24]} />
-            <meshBasicMaterial color="#0f172a" wireframe transparent opacity={0.1} />
+            <sphereGeometry args={[GLOBE_RADIUS, 32, 32]} />
+            <meshBasicMaterial color="#1e293b" wireframe transparent opacity={0.05} />
         </mesh>
         
         {/* Atmosphere Glow */}
         <mesh>
-             <sphereGeometry args={[GLOBE_RADIUS + 0.2, 32, 32]} />
+             <sphereGeometry args={[GLOBE_RADIUS + 0.2, 48, 48]} />
              <meshBasicMaterial 
                 color="#0EA5E9" 
                 transparent 
-                opacity={0.05} 
+                opacity={0.08} 
                 side={THREE.BackSide} 
                 blending={THREE.AdditiveBlending}
              />

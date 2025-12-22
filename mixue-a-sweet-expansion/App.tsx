@@ -12,25 +12,41 @@ const App: React.FC = () => {
   const [geoData, setGeoData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper to calculate centroid of a polygon
+  // Calculate Geometric Centroid (Signed Area method)
+  // This is much more accurate than Bounding Box for concave shapes (e.g. Gansu, Inner Mongolia)
+  const getPolygonCentroid = (points: number[][]): [number, number] => {
+    let x = 0, y = 0, area = 0;
+    // GeoJSON polygons are closed (first point == last point), so we loop to length - 1
+    for (let i = 0; i < points.length - 1; i++) {
+      const [x1, y1] = points[i];
+      const [x2, y2] = points[i+1];
+      const f = x1 * y2 - x2 * y1;
+      x += (x1 + x2) * f;
+      y += (y1 + y2) * f;
+      area += f * 3;
+    }
+    return area === 0 ? [points[0][0], points[0][1]] : [x / area, y / area];
+  };
+
   const calculateCentroid = (geometry: any): [number, number] => {
-    let coordinates = geometry.coordinates;
+    let targetPolygon: number[][] = [];
+
     if (geometry.type === 'Polygon') {
-      coordinates = coordinates[0]; // Outer ring
+      targetPolygon = geometry.coordinates[0];
     } else if (geometry.type === 'MultiPolygon') {
-      // Just take the first polygon's outer ring for simplicity
-      coordinates = coordinates[0][0]; 
+      // For MultiPolygons, find the polygon with the most coordinates (usually the main landmass)
+      let maxLen = 0;
+      geometry.coordinates.forEach((poly: any[]) => {
+        if (poly[0].length > maxLen) {
+          maxLen = poly[0].length;
+          targetPolygon = poly[0];
+        }
+      });
     } else {
-        return [116.4, 39.9]; // Default Beijing
+      return [116.4, 39.9]; // Fallback
     }
 
-    let x = 0, y = 0;
-    const len = coordinates.length;
-    for (let i = 0; i < len; i++) {
-      x += coordinates[i][0];
-      y += coordinates[i][1];
-    }
-    return [x / len, y / len];
+    return getPolygonCentroid(targetPolygon);
   };
 
   // Load GeoJSON data

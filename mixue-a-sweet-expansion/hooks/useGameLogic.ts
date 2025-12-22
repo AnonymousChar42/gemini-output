@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { GameState, ProvinceStatus, Tech, ProvinceData, TechCategory, Bubble } from '../types';
+import { GameState, ProvinceStatus, Tech, ProvinceData, TechCategory, Bubble, Flight } from '../types';
 import { TECH_TREE_DATA, PROVINCE_ADJACENCY, PROVINCE_FLAVORS, WIN_THRESHOLD_PROVINCES, MAX_DAYS } from '../constants';
 
 const TICK_RATE_MS = 1000; // Slower tick rate (1 second)
@@ -14,6 +14,7 @@ export const useGameLogic = () => {
     provinces: {},
     techs: TECH_TREE_DATA.reduce((acc, tech) => ({ ...acc, [tech.id]: tech }), {}),
     bubbles: [],
+    flights: [],
     news: ["欢迎来到《蜜雪冰城：甜蜜扩张》！请选择一个省份开始您的甜蜜征程。"],
     isRunning: false,
     gameWon: false,
@@ -51,8 +52,6 @@ export const useGameLogic = () => {
         ...prev,
         money: prev.money + bubble.value,
         bubbles: prev.bubbles.filter(b => b.id !== id),
-        // Optional: Add a little floating text effect logic here if we had a UI for it, 
-        // for now just increasing money is enough.
       };
     });
   }, []);
@@ -116,21 +115,14 @@ export const useGameLogic = () => {
         let fullyConqueredCount = 0;
         const newNews = [...prev.news];
         let newBubbles = [...prev.bubbles];
-
-        // Clean up old bubbles (auto-pop or just disappear? Usually disappear in Plague Inc style games if not clicked)
-        // Let's make them disappear to encourage clicking
-        // Using a simple counter based on tick might be better, but timestamp works if consistent
-        // Actually, let's just use a simple lifetime counter if we stored it, but createdAt timestamp is fine.
-        // Since we are in a setInterval, strictly speaking we should use the time delta, but for simplicity:
-        // We won't filter them out here to avoid flickering, but maybe valid for 10 seconds.
-        // Let's filter strict timeouts.
-        // NOTE: In React strict mode, timestamps might be tricky with double invoke, but in setInterval it's fine.
-        // Simplified: Remove bubbles older than X ticks (using day as proxy? No, day is game time).
-        // Let's just keep them for now or remove randomly. 
-        // Better: Remove bubbles if count > 5 to prevent clutter.
+        
+        // Clean up old bubbles
         if (newBubbles.length > 5) {
-             newBubbles.shift(); // Remove oldest
+             newBubbles.shift(); 
         }
+
+        // Clean up finished flights
+        let newFlights = prev.flights.filter(f => now < f.startTime + f.duration);
 
         // Calculate multipliers
         let spreadMultiplier = 1.0;
@@ -147,11 +139,10 @@ export const useGameLogic = () => {
 
         // 1. Expansion Logic
         const infectedProvinces = Object.values(newProvinces).filter((p: ProvinceData) => p.status !== ProvinceStatus.LOCKED);
+        const infectedNames = infectedProvinces.map(p => p.name);
         
         infectedProvinces.forEach((p: ProvinceData) => {
-          // Internal Growth - SLOWED DOWN
-          // Previous: (1 + Math.random() * 2)
-          // New: (0.3 + Math.random() * 0.5)
+          // Internal Growth
           if (p.infection < 100) {
             const growth = (0.3 + Math.random() * 0.5) * spreadMultiplier;
             p.infection = Math.min(100, p.infection + growth);
@@ -161,7 +152,6 @@ export const useGameLogic = () => {
           if (p.infection >= 100 && p.status !== ProvinceStatus.CONQUERED) {
             p.status = ProvinceStatus.CONQUERED;
             newNews.push(`${p.name} 市场已完全占领！`);
-            // Bonus points for conquering
             newMoney += 5; 
           }
 
@@ -173,12 +163,11 @@ export const useGameLogic = () => {
           totalShops += p.shopCount;
 
           // Spread to neighbors
-          // Threshold raised to 20% to slow down early snowball
           if (p.infection > 20) { 
             const neighbors = PROVINCE_ADJACENCY[p.name] || [];
             neighbors.forEach(neighborName => {
               if (newProvinces[neighborName] && newProvinces[neighborName].status === ProvinceStatus.LOCKED) {
-                // Chance to infect - Reduced from 0.05 to 0.02
+                // Chance to infect
                 if (Math.random() < 0.02 * spreadMultiplier) {
                   newProvinces[neighborName].status = ProvinceStatus.INFECTED;
                   newProvinces[neighborName].infection = 1;
@@ -187,13 +176,22 @@ export const useGameLogic = () => {
                   // SPAWN BUBBLE
                   if (newProvinces[neighborName].centroid) {
                       newBubbles.push({
-                          id: `bubble-${Date.now()}-${Math.random()}`,
+                          id: `bubble-${now}-${Math.random()}`,
                           provinceName: neighborName,
                           coordinates: newProvinces[neighborName].centroid!,
-                          value: Math.floor(2 + Math.random() * 3), // 2-4 points
-                          createdAt: Date.now()
+                          value: Math.floor(2 + Math.random() * 3),
+                          createdAt: now
                       });
                   }
+
+                  // SPAWN FLIGHT (Expansion)
+                  newFlights.push({
+                    id: `flight-exp-${now}-${p.name}-${neighborName}`,
+                    from: p.name,
+                    to: neighborName,
+                    startTime: now,
+                    duration: 6000 // Increased from 4000 to allow longer stay
+                  });
 
                   const flavor = PROVINCE_FLAVORS.find(f => f.province === neighborName);
                   if (flavor) {
@@ -207,7 +205,7 @@ export const useGameLogic = () => {
           }
 
           // Random cross border spread
-          if (crossBorder && Math.random() < 0.005) { // Reduced from 0.01
+          if (crossBorder && Math.random() < 0.005) { 
              const allNames = Object.keys(newProvinces);
              const randomTarget = allNames[Math.floor(Math.random() * allNames.length)];
              if (newProvinces[randomTarget].status === ProvinceStatus.LOCKED) {
@@ -218,28 +216,51 @@ export const useGameLogic = () => {
                  // SPAWN BUBBLE
                  if (newProvinces[randomTarget].centroid) {
                     newBubbles.push({
-                        id: `bubble-${Date.now()}-${Math.random()}`,
+                        id: `bubble-${now}-${Math.random()}`,
                         provinceName: randomTarget,
                         coordinates: newProvinces[randomTarget].centroid!,
                         value: Math.floor(3 + Math.random() * 3),
-                        createdAt: Date.now()
+                        createdAt: now
                     });
                 }
+                
+                // SPAWN FLIGHT (Long Distance)
+                newFlights.push({
+                    id: `flight-cross-${now}-${p.name}-${randomTarget}`,
+                    from: p.name,
+                    to: randomTarget,
+                    startTime: now,
+                    duration: 8000 // Increased for visual effect
+                });
 
                 newNews.push(`空降 ${randomTarget}！交通枢纽发挥作用。`);
              }
           }
         });
 
-        // 2. Resource Generation
-        // Reduced passive income significantly to prioritize bubbles
-        // Only get passive income every 10 days instead of 5
+        // 2. Random Logistics Flights (Visuals only)
+        // Spawn a random supply line between two infected provinces occasionally
+        if (infectedNames.length > 1 && Math.random() < 0.3) {
+            const from = infectedNames[Math.floor(Math.random() * infectedNames.length)];
+            const to = infectedNames[Math.floor(Math.random() * infectedNames.length)];
+            if (from !== to) {
+                 newFlights.push({
+                    id: `flight-logi-${now}-${Math.random()}`,
+                    from,
+                    to,
+                    startTime: now,
+                    duration: 5000 // Increased for visual effect
+                 });
+            }
+        }
+
+        // 3. Resource Generation
         const income = (1 + (infectedCount * 0.2)) * incomeMultiplier;
         if (prev.day % 10 === 0) { 
              newMoney += Math.floor(income);
         }
 
-        // 3. Win/Loss Check
+        // 4. Win/Loss Check
         const day = prev.day + 1;
         let gameWon = fullyConqueredCount >= WIN_THRESHOLD_PROVINCES;
         let gameLost = day > MAX_DAYS && !gameWon;
@@ -253,6 +274,7 @@ export const useGameLogic = () => {
           marketShare: (fullyConqueredCount / WIN_THRESHOLD_PROVINCES) * 100,
           news: newNews.slice(-5), 
           bubbles: newBubbles,
+          flights: newFlights,
           gameWon,
           gameLost,
           isRunning: !gameWon && !gameLost
