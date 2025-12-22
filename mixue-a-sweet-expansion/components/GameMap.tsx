@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
-import { GeoJsonLayer, TextLayer, LineLayer, ScatterplotLayer } from '@deck.gl/layers';
+import { GeoJsonLayer, LineLayer, ScatterplotLayer, IconLayer } from '@deck.gl/layers';
 import { MapViewState } from '@deck.gl/core';
 import { GameState, ProvinceStatus } from '../types';
 
@@ -21,18 +21,15 @@ const INITIAL_VIEW_STATE: MapViewState = {
 
 // --- Helper Functions for Curves ---
 
-// Calculate a control point for Quadratic Bezier (offset from midpoint)
 const getControlPoint = (p0: [number, number], p1: [number, number]): [number, number] => {
   const mx = (p0[0] + p1[0]) / 2;
   const my = (p0[1] + p1[1]) / 2;
   const dx = p1[0] - p0[0];
   const dy = p1[1] - p0[1];
-  // Perpendicular offset. 0.2 is the curvature amount.
   const curvature = 0.2; 
   return [mx - dy * curvature, my + dx * curvature];
 };
 
-// Get point on Quadratic Bezier at t (0-1)
 const getBezierPoint = (p0: [number, number], p1: [number, number], c: [number, number], t: number): [number, number] => {
   const invT = 1 - t;
   const x = invT * invT * p0[0] + 2 * invT * t * c[0] + t * t * p1[0];
@@ -40,46 +37,33 @@ const getBezierPoint = (p0: [number, number], p1: [number, number], c: [number, 
   return [x, y];
 };
 
-// Generate line segments for a Bezier curve with start/end trimming
 const generateBezierSegments = (
   p0: [number, number], 
   p1: [number, number], 
-  minT: number, // Tail progress (0 to 1)
-  maxT: number, // Head progress (0 to 1)
+  minT: number, 
+  maxT: number, 
   totalSegments: number = 50
 ) => {
   const segments = [];
   const c = getControlPoint(p0, p1);
-  
-  // Optimization: calculate index range
   const startIndex = Math.floor(minT * totalSegments);
   const endIndex = Math.ceil(maxT * totalSegments);
 
   for (let i = startIndex; i < endIndex; i++) {
     const t1 = i / totalSegments;
     const t2 = (i + 1) / totalSegments;
-    
-    // Clamp segment to the visible range [minT, maxT]
     const activeT1 = Math.max(t1, minT);
     const activeT2 = Math.min(t2, maxT);
-    
-    // If segment is effectively zero length due to clamping, skip
     if (activeT1 >= activeT2) continue;
 
     const start = getBezierPoint(p0, p1, c, activeT1);
     const end = getBezierPoint(p0, p1, c, activeT2);
 
-    segments.push({
-      start,
-      end,
-      index: i,
-      total: totalSegments
-    });
+    segments.push({ start, end, index: i, total: totalSegments });
   }
   return segments;
 };
 
-// Deterministic color generation for "Political Map" feel
 const getBaseColor = (name: string): [number, number, number] => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -91,12 +75,31 @@ const getBaseColor = (name: string): [number, number, number] => {
   return [r, g, b];
 };
 
+// Generate an icon atlas from an emoji string using Canvas
+const generateEmojiIcon = (emoji: string, size: number = 128) => {
+  if (typeof document === 'undefined') return '';
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+      ctx.clearRect(0, 0, size, size);
+      ctx.font = `${size * 0.8}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emoji, size / 2, size / 2 + size * 0.1); 
+  }
+  return canvas.toDataURL();
+};
+
 export const GameMap: React.FC<GameMapProps> = ({ gameState, onProvinceClick, onBubbleClick, geoData }) => {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const [hoverInfo, setHoverInfo] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
-  // Animation Loop
+  // Generate Icon Atlases once (Only Snowman now)
+  const snowmanIconAtlas = useMemo(() => generateEmojiIcon('⛄'), []);
+
   useEffect(() => {
     let animationFrameId: number;
     const animate = () => {
@@ -150,10 +153,9 @@ export const GameMap: React.FC<GameMapProps> = ({ gameState, onProvinceClick, on
       }
     });
 
-    // 2. Flight Paths & Planes Logic
+    // 2. Flight Paths Logic (No Planes)
     const flightSegments: any[] = [];
-    const activePlanes: any[] = [];
-    const capPoints: any[] = []; // Points for rounded caps
+    const capPoints: any[] = [];
 
     gameState.flights.forEach(f => {
       const p0 = gameState.provinces[f.from]?.centroid;
@@ -163,21 +165,18 @@ export const GameMap: React.FC<GameMapProps> = ({ gameState, onProvinceClick, on
       const elapsed = currentTime - f.startTime;
       const totalDuration = f.duration;
 
-      // Revised phases for longer stay and thinner feel
-      const flyRatio = 0.4; // 40% flying
-      const stayRatio = 0.4; // 40% staying (Much longer)
-      const fadeRatio = 0.2; // 20% fading
+      const flyRatio = 0.4; 
+      const stayRatio = 0.4; 
+      const fadeRatio = 0.2; 
 
       const flyTime = totalDuration * flyRatio;
       const stayTime = totalDuration * stayRatio;
-      const fadeTime = totalDuration * fadeRatio;
 
       let headT = elapsed < flyTime ? elapsed / flyTime : 1;
       
       const fadeStartTime = flyTime + stayTime;
-      let tailT = elapsed > fadeStartTime ? Math.min(1, (elapsed - fadeStartTime) / fadeTime) : 0;
+      let tailT = elapsed > fadeStartTime ? Math.min(1, (elapsed - fadeStartTime) / (totalDuration * fadeRatio)) : 0;
 
-      // Color Calculation Helper
       const getDynamicColor = (positionT: number) => {
          const phase = (currentTime / 800) * 2;
          const t = (Math.sin(phase - positionT * 4) + 1) / 2;
@@ -188,16 +187,13 @@ export const GameMap: React.FC<GameMapProps> = ({ gameState, onProvinceClick, on
       };
 
       if (tailT < 1) {
-        // A. Segments
         const segments = generateBezierSegments(p0, p1, tailT, headT);
         flightSegments.push(...segments);
 
         const c = getControlPoint(p0, p1);
+        const capRadius = 1.5; 
         
-        // B. Cap Points (Rounded Ends)
-        const capRadius = 1.5; // Radius in pixels (Diameter 3px) for thinner lines
-        
-        // 1. Tail Cap (Only if tail hasn't fully retracted)
+        // 1. Tail Cap
         if (tailT < 1) {
             const tailPos = getBezierPoint(p0, p1, c, tailT);
             capPoints.push({
@@ -207,34 +203,13 @@ export const GameMap: React.FC<GameMapProps> = ({ gameState, onProvinceClick, on
             });
         }
 
-        // 2. Head Cap (Moving Tip)
+        // 2. Head Cap
         const headPos = getBezierPoint(p0, p1, c, headT);
         capPoints.push({
             position: headPos,
             color: getDynamicColor(headT),
             radius: capRadius
         });
-
-        // C. Plane (Only while flying)
-        if (headT < 1) {
-          // Calculate look-ahead point for rotation angle
-          const epsilon = 0.01;
-          const tNext = Math.min(1, headT + epsilon);
-          const tPrev = Math.max(0, headT - epsilon);
-          
-          const pNext = getBezierPoint(p0, p1, c, tNext);
-          const pPrev = getBezierPoint(p0, p1, c, tPrev);
-          
-          const dx = pNext[0] - pPrev[0];
-          const dy = pNext[1] - pPrev[1];
-          let angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-          activePlanes.push({
-            position: headPos,
-            angle: -angle + 45, 
-            id: f.id
-          });
-        }
       }
     });
 
@@ -243,7 +218,7 @@ export const GameMap: React.FC<GameMapProps> = ({ gameState, onProvinceClick, on
       data: flightSegments,
       getSourcePosition: (d: any) => d.start,
       getTargetPosition: (d: any) => d.end,
-      getWidth: 2, // Thinner line (was 4)
+      getWidth: 2,
       getColor: (d: any) => {
         const phase = (currentTime / 800) * 2; 
         const position = d.index / d.total; 
@@ -265,38 +240,26 @@ export const GameMap: React.FC<GameMapProps> = ({ gameState, onProvinceClick, on
         getPosition: (d: any) => d.position,
         getFillColor: (d: any) => d.color,
         getRadius: (d: any) => d.radius,
-        radiusUnits: 'pixels', // Ensure radius is calculated in pixels
+        radiusUnits: 'pixels',
         radiusMinPixels: 1,
         updateTriggers: {
             data: [gameState.flights, currentTime]
         }
     });
 
-    // 3. Planes
-    const planeLayer = new TextLayer({
-        id: 'plane-layer',
-        data: activePlanes,
-        getPosition: (d: any) => d.position,
-        getText: d => '✈️',
-        getSize: 28,
-        getAngle: 0, 
-        getSizeScale: 1,
-        getColor: [255, 255, 255, 255],
-        updateTriggers: {
-            data: [currentTime, gameState.flights]
-        }
-    });
-
-    // 4. Bubbles
-    const bubbleLayer = new TextLayer({
+    // 3. Bubbles (Converted to IconLayer for Color)
+    const bubbleLayer = new IconLayer({
         id: 'bubble-layer',
         data: gameState.bubbles,
         pickable: true,
+        iconAtlas: snowmanIconAtlas,
+        iconMapping: {
+            snowman: { x: 0, y: 0, width: 128, height: 128, mask: false }
+        },
+        getIcon: d => 'snowman',
         getPosition: (d: any) => d.coordinates,
-        getText: d => '⛄',
         getSize: 48,
-        getColor: [255, 255, 255, 255],
-        fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+        sizeUnits: 'pixels',
         onClick: (info) => {
             if (info.object) {
                 onBubbleClick(info.object.id);
@@ -309,8 +272,8 @@ export const GameMap: React.FC<GameMapProps> = ({ gameState, onProvinceClick, on
         }
     });
 
-    return [geoLayer, flightLineLayer, capLayer, planeLayer, bubbleLayer];
-  }, [geoData, gameState.provinces, gameState.bubbles, gameState.flights, currentTime, gameState.hasStarted, gameState.selectedProvince, onProvinceClick, onBubbleClick]);
+    return [geoLayer, flightLineLayer, capLayer, bubbleLayer];
+  }, [geoData, gameState.provinces, gameState.bubbles, gameState.flights, currentTime, gameState.hasStarted, gameState.selectedProvince, onProvinceClick, onBubbleClick, snowmanIconAtlas]);
 
   return (
     <div className="w-full h-full relative bg-gray-900 rounded-lg overflow-hidden border border-gray-700 shadow-2xl">
