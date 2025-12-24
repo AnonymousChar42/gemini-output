@@ -1,0 +1,5 @@
+{
+  "name": "Retro Screensaver Simulator",
+  "description": "A collection of classic screensavers simulated using React and Canvas API, including Mystify, Bezier, 3D Maze, Pipes, FlowerBox, and DVD.",
+  "requestFramePermissions": []
+}

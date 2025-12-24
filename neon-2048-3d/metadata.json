@@ -1,0 +1,5 @@
+{
+  "name": "Neon 2048 3D",
+  "description": "A futuristic 3D variant of 2048 played on a 4x4x4 cube. Navigate dimensions with keyboard and scroll wheel.",
+  "requestFramePermissions": []
+}
