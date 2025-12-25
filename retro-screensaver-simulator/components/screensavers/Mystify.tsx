@@ -8,6 +8,26 @@ interface Polygon {
 
 const Mystify: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const polygonsRef = useRef<Polygon[]>([]);
+
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    polygonsRef.current.forEach(poly => {
+      poly.color = randomColor();
+      poly.points.forEach(p => {
+        const dx = p.x - mx;
+        const dy = p.y - my;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = 40;
+        p.dx += (dx / dist) * force;
+        p.dy += (dy / dist) * force;
+      });
+    });
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -22,33 +42,48 @@ const Mystify: React.FC = () => {
     canvas.width = width;
     canvas.height = height;
 
-    const polygons: Polygon[] = Array.from({ length: 2 }).map(() => ({
+    polygonsRef.current = Array.from({ length: 2 }).map(() => ({
       color: randomColor(),
       points: Array.from({ length: 4 }).map(() => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        dx: (Math.random() - 0.5) * 10,
-        dy: (Math.random() - 0.5) * 10,
+        dx: (Math.random() - 0.5) * 5,
+        dy: (Math.random() - 0.5) * 5,
       })),
     }));
 
-    // Trail buffer
     const trail: { polygons: Polygon[] }[] = [];
-    const maxTrail = 10;
+    const maxTrail = 12;
 
     const update = () => {
-      polygons.forEach((poly) => {
+      polygonsRef.current.forEach((poly) => {
         poly.points.forEach((p) => {
           p.x += p.dx;
           p.y += p.dy;
 
-          if (p.x < 0 || p.x > width) p.dx *= -1;
-          if (p.y < 0 || p.y > height) p.dy *= -1;
+          // Cruising logic
+          const cruisingSpeed = 4;
+          const currentSpeed = Math.sqrt(p.dx * p.dx + p.dy * p.dy) || 1;
+          
+          if (currentSpeed > cruisingSpeed) {
+            // Apply damping only if above cruising speed
+            p.dx *= 0.97;
+            p.dy *= 0.97;
+          } else {
+            // Very slowly accelerate towards cruising speed if too slow
+            p.dx *= 1.01;
+            p.dy *= 1.01;
+          }
+
+          // Handle boundaries
+          if (p.x < 0) { p.x = 0; p.dx = Math.abs(p.dx); }
+          if (p.x > width) { p.x = width; p.dx = -Math.abs(p.dx); }
+          if (p.y < 0) { p.y = 0; p.dy = Math.abs(p.dy); }
+          if (p.y > height) { p.y = height; p.dy = -Math.abs(p.dy); }
         });
       });
 
-      // Deep copy for trail
-      const snapshot = polygons.map(p => ({
+      const snapshot = polygonsRef.current.map(p => ({
         color: p.color,
         points: p.points.map(pt => ({ ...pt }))
       }));
@@ -61,7 +96,6 @@ const Mystify: React.FC = () => {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, width, height);
 
-      // Draw trails
       trail.forEach((frame, index) => {
         const opacity = (index + 1) / trail.length;
         ctx.lineWidth = 1;
@@ -103,7 +137,7 @@ const Mystify: React.FC = () => {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />;
+  return <canvas ref={canvasRef} onClick={handleCanvasClick} className="absolute top-0 left-0 w-full h-full cursor-crosshair" />;
 };
 
 export default Mystify;

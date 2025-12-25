@@ -1,0 +1,5 @@
+{
+  "name": "Emoji Wolf 3D",
+  "description": "A retro-style pseudo-3D raycasting shooter using emojis as enemies and objects, inspired by Wolfenstein 3D.",
+  "requestFramePermissions": []
+}

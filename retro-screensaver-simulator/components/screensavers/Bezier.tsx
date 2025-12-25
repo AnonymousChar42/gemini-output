@@ -2,12 +2,29 @@ import React, { useEffect, useRef } from 'react';
 import { randomColor } from '../../utils/math';
 
 interface Curve {
-  points: { x: number; y: number; dx: number; dy: number }[]; // 4 points for cubic bezier
+  points: { x: number; y: number; dx: number; dy: number }[];
   color: string;
 }
 
 const Bezier: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const curvesRef = useRef<Curve[]>([]);
+
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    curvesRef.current.forEach(curve => {
+      curve.points.forEach(p => {
+        const dx = mx - p.x;
+        const dy = my - p.y;
+        p.dx += dx * 0.15;
+        p.dy += dy * 0.15;
+      });
+    });
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -22,32 +39,44 @@ const Bezier: React.FC = () => {
     canvas.width = width;
     canvas.height = height;
 
-    const numCurves = 3;
-    const curves: Curve[] = Array.from({ length: numCurves }).map(() => ({
+    curvesRef.current = Array.from({ length: 3 }).map(() => ({
       color: randomColor(),
       points: Array.from({ length: 4 }).map(() => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        dx: (Math.random() - 0.5) * 8,
-        dy: (Math.random() - 0.5) * 8,
+        dx: (Math.random() - 0.5) * 6,
+        dy: (Math.random() - 0.5) * 6,
       })),
     }));
 
     const trail: Curve[][] = [];
-    const maxTrail = 40;
+    const maxTrail = 30;
 
     const update = () => {
-      curves.forEach((curve) => {
+      curvesRef.current.forEach((curve) => {
         curve.points.forEach((p) => {
           p.x += p.dx;
           p.y += p.dy;
-          if (p.x <= 0 || p.x >= width) p.dx *= -1;
-          if (p.y <= 0 || p.y >= height) p.dy *= -1;
+          
+          const cruisingSpeed = 5;
+          const currentSpeed = Math.sqrt(p.dx * p.dx + p.dy * p.dy) || 1;
+          
+          if (currentSpeed > cruisingSpeed) {
+            p.dx *= 0.98;
+            p.dy *= 0.98;
+          } else {
+            p.dx *= 1.005;
+            p.dy *= 1.005;
+          }
+
+          if (p.x <= 0) { p.x = 0; p.dx = Math.abs(p.dx); }
+          if (p.x >= width) { p.x = width; p.dx = -Math.abs(p.dx); }
+          if (p.y <= 0) { p.y = 0; p.dy = Math.abs(p.dy); }
+          if (p.y >= height) { p.y = height; p.dy = -Math.abs(p.dy); }
         });
       });
 
-      // Snapshot
-      const snapshot = curves.map(c => ({
+      const snapshot = curvesRef.current.map(c => ({
         color: c.color,
         points: c.points.map(p => ({ ...p }))
       }));
@@ -100,7 +129,7 @@ const Bezier: React.FC = () => {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />;
+  return <canvas ref={canvasRef} onClick={handleCanvasClick} className="absolute top-0 left-0 w-full h-full cursor-crosshair" />;
 };
 
 export default Bezier;
