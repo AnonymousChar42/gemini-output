@@ -1,7 +1,5 @@
 {
-  "name": "功德模拟器：赛佛纪元",
-  "description": "一款赛博禅意挂机游戏。点击木鱼积累功德，购买自动化设备，从凡夫俗子修成赛博佛陀。",
-  "requestFramePermissions": [
-    "microphone"
-  ]
+  "name": "Merit Simulator: Cyber Era",
+  "description": "A cyber-buddhist idle game where you accumulate merit through wooden fish tapping and automated sci-fi zen devices.",
+  "requestFramePermissions": []
 }
