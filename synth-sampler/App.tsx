@@ -6,28 +6,8 @@ import { engine } from './utils/AudioEngine';
 
 const App: React.FC = () => {
 
-  // Load a default beep sound on mount so it works out of the box
+  // Handle Audio Context Unlocking
   useEffect(() => {
-    const createDefaultBeep = () => {
-       // Create a simple generated buffer for immediate playability
-       engine.init();
-       const ctx = engine.getContext();
-       if (ctx) {
-         const sampleRate = ctx.sampleRate;
-         const length = sampleRate * 0.5; // 0.5 seconds
-         const buffer = ctx.createBuffer(1, length, sampleRate);
-         const data = buffer.getChannelData(0);
-         
-         // Simple decayed sine wave (Pluck sound)
-         for (let i = 0; i < length; i++) {
-            const t = i / sampleRate;
-            // Frequency 261.63 (Middle C)
-            data[i] = Math.sin(2 * Math.PI * 261.63 * t) * Math.exp(-5 * t); 
-         }
-         engine.setBuffer(buffer);
-       }
-    };
-
     // User interaction is often required to start AudioContext fully
     const unlockAudio = () => {
       engine.init();
@@ -37,13 +17,6 @@ const App: React.FC = () => {
 
     document.addEventListener('click', unlockAudio);
     document.addEventListener('keydown', unlockAudio);
-
-    // Initialize default sound
-    try {
-        createDefaultBeep();
-    } catch(e) {
-        console.error("Audio context not ready yet", e);
-    }
   }, []);
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { engine } from '../utils/AudioEngine';
 import { SoundSourceType } from '../types';
 
@@ -7,8 +7,9 @@ interface ControlPanelProps {
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({ onSampleLoaded }) => {
-  const [fileName, setFileName] = useState<string>("Default Sine Wave (Loading...)");
+  const [fileName, setFileName] = useState<string>("Initializing...");
   const [volume, setVolume] = useState(0.5);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   
   // Loop State
   const [isLooping, setIsLooping] = useState(false);
@@ -20,22 +21,62 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onSampleLoaded }) =>
   const [midiBuffer, setMidiBuffer] = useState<ArrayBuffer | null>(null);
   const [isPlayingMidi, setIsPlayingMidi] = useState(false);
 
-  // Poll for default duration on mount (hacky but simple since App sets it)
+  // Initial Load Effect
   useEffect(() => {
-    const checkDuration = () => {
-        const d = engine.getDuration();
-        if (d > 0 && sampleDuration === 0) {
-            setSampleDuration(d);
-            setLoopEnd(d);
-            engine.setLoopConfig(false, 0, d);
+    const loadDefaults = async () => {
+      // 1. Try to load default Audio (fa.mp3)
+      try {
+        const buffer = await engine.loadAudioFromUrl('fa.mp3');
+        setFileName("fa.mp3");
+        setSampleDuration(buffer.duration);
+        setLoopEnd(buffer.duration);
+        engine.setLoopConfig(false, 0, buffer.duration);
+        onSampleLoaded("fa.mp3", SoundSourceType.DEFAULT);
+      } catch (e) {
+        console.warn("Could not load 'fa.mp3'. Falling back to synthetic beep.", e);
+        handleClearAudio(); // Fallback to synth
+      }
+
+      // 2. Try to load default MIDI (Flight_of_the_Bumblebee.mid)
+      try {
+        const res = await fetch('Flight_of_the_Bumblebee.mid');
+        if (res.ok) {
+            const buffer = await res.arrayBuffer();
+            setMidiBuffer(buffer);
+            setMidiFileName("Flight_of_the_Bumblebee.mid");
+        } else {
+            console.warn("Could not find default MIDI file.");
         }
+      } catch (e) {
+        console.warn("Error loading default MIDI file", e);
+      }
     };
-    const timer = setInterval(checkDuration, 500);
-    return () => clearInterval(timer);
-  }, [sampleDuration]);
+
+    loadDefaults();
+  }, [onSampleLoaded]);
 
   const updateLoopEngine = (enabled: boolean, start: number, end: number) => {
     engine.setLoopConfig(enabled, start, end);
+  };
+
+  const handleClearAudio = () => {
+    try {
+        const buffer = engine.createFallbackBuffer();
+        setFileName("Synthesizer (Basic Piano)");
+        setSampleDuration(buffer.duration);
+        setLoopStart(0);
+        setLoopEnd(buffer.duration);
+        
+        // Reset loop state to false when clearing
+        setIsLooping(false);
+        updateLoopEngine(false, 0, buffer.duration);
+
+        if (audioInputRef.current) {
+            audioInputRef.current.value = "";
+        }
+    } catch (err) {
+        console.error("Failed to reset audio", err);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,6 +92,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onSampleLoaded }) =>
       setSampleDuration(buffer.duration);
       setLoopStart(0);
       setLoopEnd(buffer.duration);
+      // Keep previous loop state if user wants, but safer to reset or clamp
       updateLoopEngine(isLooping, 0, buffer.duration);
 
       onSampleLoaded(file.name, SoundSourceType.UPLOAD);
@@ -123,19 +165,51 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onSampleLoaded }) =>
           <h3 className="text-synth-neon font-bold uppercase tracking-wider text-sm">1. Load Instrument (Audio)</h3>
           
           <div className="bg-synth-dark p-4 rounded-lg border border-gray-700/50">
-             <label className="block mb-2 text-gray-300 text-xs font-mono">Upload Audio File (wav/mp3)</label>
-             <input
-               type="file"
-               accept="audio/*"
-               onChange={handleFileUpload}
-               className="block w-full text-sm text-gray-400
-                 file:mr-4 file:py-2 file:px-4
-                 file:rounded-full file:border-0
-                 file:text-sm file:font-semibold
-                 file:bg-synth-neon file:text-white
-                 hover:file:bg-red-600
-                 cursor-pointer"
-             />
+             <label className="block mb-2 text-gray-300 text-xs font-mono">Current Instrument Source</label>
+             
+             {/* Custom File Input UI */}
+             <div className="flex items-center gap-2 bg-gray-800/50 p-2 rounded-md border border-gray-600">
+                <div className="bg-synth-neon/20 p-2 rounded text-synth-neon">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" clipRule="evenodd" />
+                    </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{fileName}</p>
+                    <p className="text-[10px] text-gray-400">Audio / Wav / Mp3</p>
+                </div>
+                
+                {/* Hidden Input */}
+                <input
+                   ref={audioInputRef}
+                   type="file"
+                   accept="audio/*"
+                   onChange={handleFileUpload}
+                   className="hidden"
+                />
+
+                <button 
+                    onClick={() => audioInputRef.current?.click()}
+                    className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                    title="Upload new file"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                </button>
+
+                {fileName !== "Synthesizer (Basic Piano)" && (
+                  <button 
+                      onClick={handleClearAudio}
+                      className="p-2 text-red-400 hover:text-red-200 hover:bg-red-900/30 rounded transition-colors"
+                      title="Clear Audio (Reset to Piano)"
+                  >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                  </button>
+                )}
+             </div>
           </div>
 
           <h3 className="text-synth-neon font-bold uppercase tracking-wider text-sm mt-4">2. Load Sequence (MIDI)</h3>
@@ -177,7 +251,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onSampleLoaded }) =>
                   STOP
                 </button>
              </div>
-             {midiFileName && <p className="mt-2 text-[10px] text-gray-400 font-mono text-center">Loaded: {midiFileName}</p>}
+             {midiFileName && (
+                 <p className="mt-2 text-[10px] text-gray-400 font-mono text-center truncate">
+                    Loaded: {midiFileName.replace("Default: ", "")}
+                 </p>
+             )}
           </div>
         </div>
 
@@ -185,9 +263,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ onSampleLoaded }) =>
         <div className="flex-1 w-full space-y-4">
           <h3 className="text-synth-neon font-bold uppercase tracking-wider text-sm">3. Configuration</h3>
           
-          <div className="bg-black/30 p-4 rounded-lg min-h-[100px] flex flex-col justify-center items-center border border-dashed border-gray-600">
+          <div className="bg-black/30 p-4 rounded-lg min-h-[100px] flex flex-col justify-center items-center border border-dashed border-gray-600 relative">
              <span className="text-gray-400 text-xs mb-1">Active Instrument</span>
-             <p className="text-white font-mono text-center break-all">{fileName}</p>
+             <p className="text-white font-mono text-center break-all text-lg font-bold text-synth-neon drop-shadow-sm">{fileName}</p>
              <span className="text-gray-500 text-[10px] mt-2">Mapped to Middle C (C4). Duration: {sampleDuration.toFixed(2)}s</span>
           </div>
 

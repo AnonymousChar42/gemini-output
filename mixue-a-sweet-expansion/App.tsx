@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { GameMap } from './components/GameMap';
 import { TechPanel } from './components/TechPanel';
@@ -11,6 +11,42 @@ const App: React.FC = () => {
   const { gameState, startGame, purchaseTech, initializeProvinces, selectProvince, collectBubble } = useGameLogic();
   const [geoData, setGeoData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Background Music Logic
+  useEffect(() => {
+    const audio = new Audio('蜜雪冰城甜蜜蜜.mp3');
+    audio.loop = true;
+    audio.volume = 0.4; // Moderate volume
+    audioRef.current = audio;
+
+    const playAudio = () => {
+      audio.play().catch(e => {
+        // Ignore errors (autoplay policy or file missing)
+        console.log("Audio playback failed (autoplay or missing):", e);
+      });
+    };
+
+    // Try to play immediately
+    playAudio();
+
+    // Setup user interaction listener to ensure playback if autoplay blocked
+    const handleUserInteraction = () => {
+      if (audio.paused) {
+        playAudio();
+      }
+    };
+
+    document.addEventListener('click', handleUserInteraction, { once: true });
+    document.addEventListener('keydown', handleUserInteraction, { once: true });
+
+    return () => {
+      audio.pause();
+      audio.src = "";
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+    };
+  }, []);
 
   // Calculate Geometric Centroid (Signed Area method)
   // This is much more accurate than Bounding Box for concave shapes (e.g. Gansu, Inner Mongolia)

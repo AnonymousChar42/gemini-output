@@ -38,6 +38,48 @@ export class AudioEngine {
     }
   }
 
+  public async loadAudioFromUrl(url: string): Promise<AudioBuffer> {
+    this.init();
+    if (!this.context) throw new Error("Audio Context not initialized");
+
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch audio from ${url}: ${response.status} ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const decoded = await this.context.decodeAudioData(arrayBuffer);
+    this.setBuffer(decoded);
+    return decoded;
+  }
+
+  public createFallbackBuffer(): AudioBuffer {
+      this.init();
+      if (!this.context) throw new Error("Audio Context not initialized");
+
+      const sampleRate = this.context.sampleRate;
+      const length = sampleRate * 1.5; // 1.5 seconds for better decay
+      const buffer = this.context.createBuffer(1, length, sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      // Synthesis: Additive synthesis for a "Electric Piano" like sound
+      // Fundamental + 2nd Harmonic (lower vol) + 3rd Harmonic (lower vol)
+      const freq = 261.63; // C4
+      
+      for (let i = 0; i < length; i++) {
+        const t = i / sampleRate;
+        const decay = Math.exp(-3 * t); // Exponential decay
+        
+        // Mix sine waves
+        const fundamental = Math.sin(2 * Math.PI * freq * t);
+        const harmonic2 = 0.5 * Math.sin(2 * Math.PI * freq * 2 * t);
+        const harmonic3 = 0.25 * Math.sin(2 * Math.PI * freq * 3 * t);
+        
+        data[i] = (fundamental + harmonic2 + harmonic3) * decay * 0.5; 
+      }
+      this.setBuffer(buffer);
+      return buffer;
+  }
+
   public setLoopConfig(enabled: boolean, start: number, end: number) {
     this.isLooping = enabled;
     this.loopStart = start;
